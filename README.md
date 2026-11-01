@@ -1,8 +1,7 @@
 # DeepseekPet 🐋
 
 一个基于 **Paper 1.21.11** 与 **ItemsAdder 4.x** 的 Minecraft 宠物插件：在服务器里生成一只
-「鲸鱼娘」——它会像原版狼一样跟随你，头顶悬浮着「玩家 XXX 的鲸鱼娘」，可以点击交互、
-跟它聊天、答疑解惑，还会在特定时间/条件随机冒出一句台词。
+「鲸鱼娘」，可以点击交互、跟它聊天、答疑解惑，还会在特定时间/条件随机冒出一句台词。
 
 > 角色形象与设定来自开源二创项目 [deepseek-whalechan](https://github.com/DeepSeekAI/deepseek-whalechan)
 > （非 DeepSeek 官方出品）。本插件与 deepseek-whalechan 一样属于社区同人创作。
@@ -109,15 +108,18 @@
 在项目根目录执行：
 
 ```bash
-# 免费版（普通构建）
-mvn clean package -pl deepseekpet-free -am
+# 免费版（公开仓库默认即可构建，包含 common + free）
+mvn clean package
 
-# 付费版（普通构建，未混淆，用于开发调试）
-mvn clean package -pl deepseekpet-premium -am
+# 付费版（premium 为本地私有模块，需显式激活 premium profile；未混淆，用于开发调试）
+mvn clean package -Ppremium
 
 # 付费版（发布构建：混淆）
-mvn clean package -pl deepseekpet-premium -am -Pobfuscate
+mvn clean package -Ppremium -Pobfuscate
 ```
+
+> `deepseekpet-premium/` 是付费版专有代码，已加入 `.gitignore`，不会推送到公开仓库；
+> 公开仓库只包含免费版。付费版在本地开发时通过 `-Ppremium` 参与构建。
 
 产物：
 
@@ -230,7 +232,7 @@ DeepseekPet/
 ├── pom.xml                          # 父工程
 ├── deepseekpet-common/              # 共享核心（free/premium 都用）
 ├── deepseekpet-free/                # 免费版
-├── deepseekpet-premium/             # 付费版（含 ProGuard 混淆）
+├── deepseekpet-premium/             # 付费版（私有模块，未纳入公开仓库）
 ├── itemsadder-content/whalechan/    # ItemsAdder 内容（实体配置 + 模型 + 贴图）
 ├── model/                           # 鲸鱼娘 3D 模型源文件 + 导入指南
 ├── rag-bridge/                      # 本地检索 + 云端生成（Python 侧车）
@@ -244,7 +246,8 @@ DeepseekPet/
 
 ## 许可证与版权
 
-- 本插件的代码（`deepseekpet-*`、`rag-bridge`）采用 MIT 许可证；
+- 本项目代码采用 [MIT 许可证](LICENSE)（Copyright © 2026 buzizi）；
+- 付费版（`deepseekpet-premium/`）为私有模块，不包含在本公开仓库中；
 - 鲸鱼娘角色设定与视觉资产来自 [deepseek-whalechan](https://github.com/DeepSeekAI/deepseek-whalechan)，
   其角色美术素材受 CC BY-NC-SA 4.0 约束，请遵守其许可（详见其 `LICENSE-CC-BY-NC-SA-4.0`）；
 - DeepSeek 及相关品牌名称归其各自所有者所有，本插件为社区同人项目，非官方出品。

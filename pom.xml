@@ -16,8 +16,21 @@
     <modules>
         <module>deepseekpet-common</module>
         <module>deepseekpet-free</module>
-        <module>deepseekpet-premium</module>
     </modules>
+
+    <!-- 付费版模块默认不参与聚合构建：公开仓库只包含免费版（premium 已 gitignore），
+         若仍把 premium 写进 modules，克隆公开仓库后会因缺少该模块而构建失败。
+         本地构建付费版时显式激活 premium profile 即可：
+             mvn clean package -Ppremium
+    -->
+    <profiles>
+        <profile>
+            <id>premium</id>
+            <modules>
+                <module>deepseekpet-premium</module>
+            </modules>
+        </profile>
+    </profiles>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

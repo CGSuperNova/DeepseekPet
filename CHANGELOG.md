@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 新增 MIT 许可证（`LICENSE`）。
+- 付费版 `deepseekpet-premium/` 改为私有模块：加入 `.gitignore`，不再推送到公开仓库；
+  本地构建需显式激活 `-Ppremium` profile。
+
 ## [1.0.0] - 2026-10-31
 
 ### Added
