@@ -1,0 +1,261 @@
+{{DISPLAYTITLE:DeepseekPet}}
+
+{{Infobox plugin
+| name        = DeepseekPet
+| author      = buzizi
+| version     = 1.0.0
+| api         = Paper 1.21.11
+| depends     = ItemsAdder 4.x（+ ProtocolLib）
+| license     = MIT（角色素材遵循 deepseek-whalechan 的 CC BY-NC-SA 4.0）
+}}
+
+'''DeepseekPet''' 是一个基于 Paper 1.21.11 与 ItemsAdder 的鲸鱼娘宠物插件。
+它为每个玩家生成一只会跟随、会聊天、会答疑的「鲸鱼娘」，并提供 free / premium 双版本。
+
+== 概述 ==
+
+鲸鱼娘的形象与角色设定来自开源二创项目
+[https://github.com/DeepSeekAI/deepseek-whalechan deepseek-whalechan]
+（非 DeepSeek 官方出品）。
+
+插件的四大能力：
+
+# '''模型'''：Minecraft 方块风格的鲸鱼娘 3D 模型（BlockBench 源文件）。
+# '''实体'''：通过 ItemsAdder 自定义实体加载，移动/跟随复用原版狼 AI。
+# '''问答'''：本地检索（RAG）+ 云端生成，并套用鲸鱼娘角色卡。
+# '''行为'''：悬浮字、交互 GUI、对话框、持久记忆、定时/条件随机台词、收起/释放。
+
+== 环境要求 ==
+
+{| class="wikitable"
+! 组件 !! 版本
+|-
+| Paper || 1.21.11
+|-
+| Java || 21
+|-
+| ItemsAdder || 4.x（基于 4.0.15 开发）
+|-
+| ProtocolLib || ItemsAdder 自带依赖
+|-
+| Python || 3.10+（运行 rag-bridge）
+|-
+| Maven || 3.8+（构建）
+|}
+
+== 安装 ==
+
+=== 1. 安装插件 ===
+
+# 安装 Paper 1.21.11、ItemsAdder 4.x（及 ProtocolLib）。
+# 将构建出的 jar 放入 <code>plugins/</code>（free 与 premium 二选一）。
+# 启动服务器生成默认配置。
+
+=== 2. 导入模型 ===
+
+参见 [[#模型导入|模型导入]] 一节，简要步骤：
+
+# 用 BlockBench（≥4.1.5）+ ItemsAdder 扩展打开 <code>model/whalechan.bbmodel</code>；
+# <code>File → Convert Project</code> → 选 <code>ItemsAdder Entity Model</code>；
+# 导出得到 <code>.iaentitymodel</code>；
+# 与 <code>whalechan.png</code>、<code>configs/whalechan.yml</code> 一起放入
+   <code>plugins/ItemsAdder/contents/whalechan/</code>；
+# 服务器内执行 <code>/iazip</code>。
+
+=== 3. 部署 rag-bridge ===
+
+<pre>
+cd rag-bridge
+py -m pip install -r requirements.txt
+copy .env.example .env
+py ingest.py       # 可选：放入 data/ 文档后建索引
+py server.py       # 默认 127.0.0.1:8100
+</pre>
+
+== 配置 ==
+
+配置文件位于 <code>plugins/DeepseekPet/</code>：
+
+* <code>config.yml</code> — 主配置；
+* <code>persona.yml</code> — 鲸鱼娘角色卡；
+* <code>ambient.yml</code> — 随机台词规则。
+
+=== config.yml 关键项 ===
+
+{| class="wikitable"
+! 路径 !! 默认值 !! 说明
+|-
+| <code>pet.entity-id</code> || <code>whalechan:whalechan</code> || ItemsAdder 实体 id
+|-
+| <code>pet.name-format</code> || <code>玩家 %player% 的鲸鱼娘</code> || 头顶悬浮字格式
+|-
+| <code>ai.rag-url</code> || <code>http://127.0.0.1:8100</code> || rag-bridge 地址
+|-
+| <code>ai.memory-max-turns</code> || <code>20</code> || 每个玩家保留的最近对话轮数
+|-
+| <code>ambient.check-interval-seconds</code> || <code>30</code> || 随机台词检查间隔
+|}
+
+=== 角色卡 ===
+
+角色卡（<code>persona.yml</code> 与 <code>rag-bridge/persona.txt</code>）决定了鲸鱼娘的
+说话风格：元气可爱、有点小傲娇、爱白米饭，知识类问题会依据检索资料回答，
+闲聊则按角色人格自由发挥。
+
+== 指令 ==
+
+{| class="wikitable"
+! 指令 !! 说明 !! 权限
+|-
+| <code>/dp show</code> || 召唤鲸鱼娘 || deepseekpet.use
+|-
+| <code>/dp hide</code> || 收起鲸鱼娘 || deepseekpet.use
+|-
+| <code>/dp toggle</code> || 显示 / 隐藏切换 || deepseekpet.use
+|-
+| <code>/dp end</code> || 结束与鲸鱼娘的对话 || deepseekpet.use
+|-
+| <code>/dp info</code> || 查看版本 || deepseekpet.use
+|-
+| <code>/dp reload</code> || 重载配置 || deepseekpet.admin
+|}
+
+== 权限 ==
+
+{| class="wikitable"
+! 权限 !! 默认 !! 说明
+|-
+| <code>deepseekpet.use</code> || 所有人 || 使用基础功能
+|-
+| <code>deepseekpet.admin</code> || OP || 管理功能（reload 等）
+|}
+
+== 模型导入 ==
+
+模型源文件：
+
+* <code>model/whalechan.bbmodel</code> — BlockBench 模型；
+* <code>model/whalechan.png</code> — 64×64 贴图；
+* <code>model/EXPORT.md</code> — 完整导入步骤。
+
+模型采用 semi-chibi（约 2.5 头身）方块比例，骨骼分组为
+<code>head</code>、<code>body</code>、<code>left_arm</code>、<code>right_arm</code>、
+<code>left_leg</code>、<code>right_leg</code>、<code>tail</code>。
+
+== AI 对话与记忆 ==
+
+=== 对话流程 ===
+
+# 右键鲸鱼娘 → 打开交互 GUI；
+# 点击「💬 与鲸鱼娘对话」；
+# 在聊天栏输入文字发送给鲸鱼娘；
+# 鲸鱼娘通过 rag-bridge 检索 + 生成后回复（<code>/dp end</code> 结束）。
+
+=== 持久记忆 ===
+
+每个玩家的对话历史保存在 <code>plugins/DeepseekPet/memory/&lt;uuid&gt;.json</code>，
+鲸鱼娘会带上最近的对话上下文作答。
+
+* '''Free'''：超过 <code>ai.memory-max-turns</code> 后丢弃最旧消息；
+* '''Premium'''：超过上限前先把旧对话概括为长期记忆，存入
+  <code>memory/&lt;uuid&gt;.summary.txt</code>。
+
+=== rag-bridge 接口 ===
+
+{| class="wikitable"
+! 方法 !! 路径 !! 说明
+|-
+| GET || <code>/health</code> || 健康检查
+|-
+| POST || <code>/chat</code> || 鲸鱼娘对话（插件使用）
+|-
+| POST || <code>/ask</code> || 原版专业问答（兼容）
+|-
+| POST || <code>/search</code> || 只检索不生成
+|}
+
+== 随机台词 ==
+
+<code>ambient.yml</code> 中每条规则满足 <code>when</code> 全部条件时，
+从 <code>lines</code> 随机抽一句，以悬浮字显示在鲸鱼娘头顶并播放 UI 点击音效。
+
+支持条件：
+
+{| class="wikitable"
+! 条件 !! 写法 !! 说明
+|-
+| 时间点 || <code>time: "01:00"</code> || 现实时间正好（带容差窗口）
+|-
+| 时间段 || <code>time-range: ["23:00", "06:00"]</code> || 可跨午夜
+|-
+| 日期段 || <code>date-range: ["2026-01-01", "2026-12-31"]</code> || 起止日期
+|-
+| 星期 || <code>weekdays: "workday"</code> || workday / weekend / [MONDAY, ...]
+|-
+| 单双周 || <code>week-parity: "odd"</code> || odd / even（ISO 周数）
+|-
+| 固定间隔 || <code>interval-seconds: 600</code> || 每隔 600 秒
+|}
+
+== Free 与 Premium ==
+
+{| class="wikitable"
+! 功能 !! Free !! Premium
+|-
+| 鲸鱼娘实体（狼 AI 跟随） || ✅ || ✅
+|-
+| 交互 GUI + 对话框 || ✅ || ✅
+|-
+| RAG + 云端 AI + 持久记忆 || ✅ || ✅
+|-
+| 定时/条件随机台词 || ✅ || ✅
+|-
+| 收起 / 释放 || ✅ || ✅
+|-
+| 长期记忆摘要 || ❌ || ✅
+|-
+| 代码混淆 || ❌ || ✅
+|}
+
+== 构建 ==
+
+<pre>
+# 免费版
+mvn clean package -pl deepseekpet-free -am
+
+# 付费版（开发）
+mvn clean package -pl deepseekpet-premium -am
+
+# 付费版（发布，混淆）
+mvn clean package -pl deepseekpet-premium -am -Pobfuscate
+</pre>
+
+== 常见问题 ==
+
+; 鲸鱼娘没有生成？
+: 确认 ItemsAdder 已加载 <code>whalechan:whalechan</code> 实体（<code>/iazip</code> 后重启）。
+
+; 鲸鱼娘不回话？
+: 确认 rag-bridge 已启动、<code>ai.rag-url</code> 正确、<code>DEEPSEEK_API_KEY</code> 已填；
+  若未配置直连 key，RAG 离线时无法兜底。
+
+; 头顶没有悬浮字？
+: 检查 <code>pet.show-name-tag</code> 是否为 <code>true</code>。
+
+; 模型显示为错误贴图？
+: 确认 <code>.iaentitymodel</code> 与 <code>whalechan.png</code> 在同一
+  <code>entity/whalechan/</code> 目录，并执行 <code>/iazip</code>。
+
+== 开发 ==
+
+代码分三个 Maven 模块：
+
+* <code>deepseekpet-common</code> — 共享核心；
+* <code>deepseekpet-free</code> — 免费版；
+* <code>deepseekpet-premium</code> — 付费版（含 ProGuard）。
+
+新增 premium 功能：实现 <code>org.buzizi.deepseekpet.premium.PremiumFeature</code> 接口，
+并在 <code>PremiumFeatureRegistry</code> 中注册即可。
+
+[[Category:Minecraft 插件]]
+[[Category:ItemsAdder]]

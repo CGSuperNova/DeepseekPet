@@ -1,0 +1,25 @@
+name: DeepseekPet
+version: '${version}'
+main: org.buzizi.deepseekpet.premium.DeepseekPetPremium
+api-version: '1.21'
+load: POSTWORLD
+authors: [buzizi]
+website: https://github.com/buzizi/DeepseekPet
+description: DeepseekPet 付费版 —— 鲸鱼娘宠物插件（含 premium 专有功能，已混淆）
+softdepend:
+  - ItemsAdder
+  - ProtocolLib
+
+commands:
+  deepseekpet:
+    description: DeepseekPet 主指令
+    aliases: [dp]
+    usage: /<command> [show|hide|toggle|end|info|reload]
+
+permissions:
+  deepseekpet.use:
+    description: 使用 DeepseekPet 基础功能
+    default: true
+  deepseekpet.admin:
+    description: 使用 DeepseekPet 管理功能（reload 等）
+    default: op

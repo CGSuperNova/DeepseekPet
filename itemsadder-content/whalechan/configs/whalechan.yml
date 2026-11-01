@@ -1,0 +1,16 @@
+info:
+  namespace: whalechan
+
+entities:
+  whalechan:
+    display_name: "鲸鱼娘"
+    # 用原版「狼」作为基座实体：移动/跟随直接复用原版狼的 AI，
+    # 外观则替换成鲸鱼娘的模型。
+    type: WOLF
+    model_folder: entity/whalechan
+    silent: true
+    can_sun_burn: false
+    max_health: 20
+    speed:
+      movement: 1
+      flying: 0

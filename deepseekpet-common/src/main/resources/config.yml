@@ -1,0 +1,55 @@
+# ============================================================
+#  DeepseekPet 主配置
+#  （free 与 premium 共用）
+# ============================================================
+
+pet:
+  # 玩家进服后是否自动生成鲸鱼娘
+  auto-spawn-on-join: true
+  # 鲸鱼娘对应的 ItemsAdder 自定义实体 id（命名空间:实体名）
+  entity-id: "whalechan:whalechan"
+  # 头顶悬浮字格式（%player% 会被替换为玩家名）
+  name-format: "玩家 %player% 的鲸鱼娘"
+  # 是否显示原版名字标签（悬浮字）
+  show-name-tag: true
+
+ai:
+  # 本地 RAG 检索服务地址（rag-bridge，参考 local_rag_qa 实现）
+  rag-url: "http://127.0.0.1:8100"
+  # 对应 rag-bridge/.env 里的 API_KEYS，留空表示不鉴权
+  rag-api-key: ""
+  # 单次请求超时（秒）
+  timeout-seconds: 120
+  # RAG 服务不可用时，是否直连 DeepSeek 兜底（保证能聊日常）
+  fallback-to-llm: true
+  # 直连大模型的配置（兜底对话 & premium 记忆摘要使用，OpenAI 兼容协议）
+  llm:
+    base-url: "https://api.deepseek.com"
+    api-key: ""
+    model: "deepseek-chat"
+    temperature: 0.7
+    max-tokens: 2048
+  # 持久记忆：每个玩家保留的最近对话轮数（1 轮 = 一问一答）
+  memory-max-turns: 20
+
+ambient:
+  # 是否启用定时 / 条件随机台词
+  enabled: true
+  # 台词以悬浮字显示在头顶的时长（秒）
+  float-seconds: 4
+  # 条件检查间隔（秒）
+  check-interval-seconds: 30
+
+messages:
+  # 各种提示文本（可自行汉化）
+  pet-spawned: "&b你的鲸鱼娘已经来到你身边啦～"
+  pet-released: "&b鲸鱼娘被收起来啦（输入 /dp show 重新召唤）"
+  pet-hidden: "&b鲸鱼娘已经隐藏啦（输入 /dp show 重新召唤）"
+  already-has-pet: "&e你已经有一只鲸鱼娘啦～"
+  no-pet: "&e你还没有鲸鱼娘，输入 /dp show 召唤一只吧"
+  dialog-start: "&b现在可以和鲸鱼娘聊天啦，直接输入文字发送即可，输入 &f/dp end &b结束对话"
+  dialog-end: "&b和鲸鱼娘的对话结束啦～"
+  thinking: "&7鲸鱼娘正在思考中…"
+  ai-error: "&c鲸鱼娘暂时开小差啦：%error%"
+  rag-down: "&e本地知识库服务未启动，鲸鱼娘先用聊天模式陪你聊～"
+  reloaded: "&aDeepseekPet 配置已重载"

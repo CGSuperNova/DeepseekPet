@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.buzizi</groupId>
+        <artifactId>deepseekpet</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>deepseekpet-common</artifactId>
+    <name>DeepseekPet Common</name>
+    <description>free / premium 共享的核心实现</description>
+
+    <dependencies>
+        <!-- Paper 服务端 API（provided，运行时由服务端提供） -->
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+        </dependency>
+        <!-- ItemsAdder API（provided，运行时由 ItemsAdder 提供） -->
+        <dependency>
+            <groupId>com.github.LoneDev6</groupId>
+            <artifactId>API-ItemsAdder</artifactId>
+        </dependency>
+        <!-- JSON 序列化（shade 进最终 jar） -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+        </plugins>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+    </build>
+</project>

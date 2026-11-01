@@ -1,0 +1,47 @@
+# ===== Maven / Java =====
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+
+# ===== IDE =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ===== OS =====
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# ===== 参考材料（非插件源码，不纳入 git 仓库）=====
+# deepseek-whalechan 是独立的第三方二创项目（自带 .git 与独立许可证）
+/deepseek-whalechan/
+# local_rag_qa 是参考用的领域问答系统
+/local_rag_qa/
+# ItemsAdder 为付费插件本体，仅作参考，不提交
+/ItemsAdder_4.0.15.jar
+# 旧脚手架（已废弃，如无法删除可忽略）
+/DeepseekPet/
+
+# ===== rag-bridge（本地检索服务）运行时产物 =====
+rag-bridge/.env
+rag-bridge/data/
+rag-bridge/db_index/
+rag-bridge/logs/
+rag-bridge/**/__pycache__/
+rag-bridge/**/*.pyc
+rag-bridge/.venv/
+rag-bridge/venv/
+
+# ===== 运行时 =====
+plugins/DeepseekPet/memory/
+plugins/DeepseekPet/cache/
