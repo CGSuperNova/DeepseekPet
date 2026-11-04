@@ -69,6 +69,40 @@ py server.py
 - `HOST`/`PORT` 默认 `127.0.0.1:8100`，与插件 `config.yml` 里的 `ai.rag-url` 对应。
 - 若设置 `API_KEYS`，插件 `config.yml` 里的 `ai.rag-api-key` 需填同一个 key。
 
+## 性能优化
+
+针对 local_rag_qa 的检索耗时问题做了四层优化（详见 `.env.example` 注释）：
+
+| 优先级 | 优化项 | 说明 |
+|---|---|---|
+| P0 | BM25 换成 `bm25s` + 去全量内存 | 不再把全量文档拉进内存；BM25 用稀疏矩阵 + 内存映射，快 1~2 个数量级；`/status` 的 count 走 ChromaDB O(1) |
+| P0 | 查询级 LRU 缓存 | 相同问题整条检索链路直接命中，0 成本返回（`QUERY_CACHE_*`） |
+| P0 | 修正单候选跳过重排 | 单候选不再白跑一次重排 |
+| P1 | 重排串行化 | 多请求并发下防线程超订（`RERANK_SERIAL`） |
+| P1 | 重排 ONNX fp32 | 约 1.33× 加速、排序完全一致；先跑 `export_rerank_onnx.py` 导出再配置 |
+| P1 | 语义缓存 | 相似问题复用结果，P95 秒级→毫秒级（`SEMANTIC_CACHE_*`） |
+| P2 | 动态 TOP_K_RERANK | 简单查询少送重排、难查询多送（`DYNAMIC_RERANK_*`） |
+| P2 | 换更小重排模型 | `bge-reranker-base` 3.84× 加速，但 top-3 overlap 约 80%，需自测后切换 |
+
+### ONNX 重排（可选，P1）
+
+```powershell
+py export_rerank_onnx.py --model BAAI/bge-reranker-v2-m3 --output bge-reranker-v2-m3.onnx
+```
+
+然后在 `.env` 里设置 `RERANK_ONNX_PATH` 为导出文件的绝对路径、`RERANK_BACKEND=auto`。
+加载失败会自动回退到 PyTorch，不影响可用性。
+
+### 换更小的重排模型（可选，P2，有精度代价）
+
+`bge-reranker-base`（277MB）比 `bge-reranker-v2-m3` 快约 3.84×，但 top-3 overlap 只有 80%。
+对「答案必须出自 top-3」要求高时保持 v2-m3；对延迟更敏感时可切 base，但**切换前务必用自己的
+eval 集跑一遍 top-k 对比**：
+
+```dotenv
+RERANK_MODEL=BAAI/bge-reranker-base
+```
+
 ## 与 local_rag_qa 的区别
 
 | 项目 | local_rag_qa | rag-bridge |

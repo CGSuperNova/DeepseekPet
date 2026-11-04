@@ -10,7 +10,8 @@ chromadb>=0.5                     # 本地向量库（文件型，免服务端�
 sentence-transformers>=3.0        # 嵌入模型（默认 BAAI/bge-m3）
 FlagEmbedding>=1.2                # 重排模型（默认 BAAI/bge-reranker-v2-m3）
 jieba>=0.42                       # 中文分词（BM25 关键词检索）
-rank-bm25>=0.2                    # BM25
+bm25s>=0.9                        # BM25（SciPy 稀疏矩阵，比 rank-bm25 快 1~2 个数量级）
+onnxruntime>=1.17                 # 重排模型 ONNX 推理（可选，加速约 1.3×）
 numpy>=1.26
 
 # ---- 文档解析 ----

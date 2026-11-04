@@ -13,6 +13,7 @@ author: buzizi (2026级电子商务陈逸轩)
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shutil
 import time
@@ -129,6 +130,22 @@ def build_chunks(
     return ids, docs, metas, skipped
 
 
+def build_bm25_index(ids: list[str], docs: list[str], save_dir: Path, progress=None) -> None:
+    """构建并保存 bm25s 关键词索引（与向量库同一次建库完成，避免查询时全量加载）。"""
+    import bm25s
+
+    from retriever import tokenize
+
+    tokenized = [tokenize(doc) or ["\u200b"] for doc in docs]
+    retriever = bm25s.BM25()
+    retriever.index(tokenized)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    retriever.save(str(save_dir))
+    (save_dir / "ids.json").write_text(json.dumps(ids, ensure_ascii=False), encoding="utf-8")
+    if progress:
+        progress(f"已保存 BM25 索引：{len(ids)} 个片段 -> {save_dir}")
+
+
 def ingest(
     data_dir: Path | None = None,
     db_dir: Path | None = None,
@@ -194,6 +211,11 @@ def ingest(
             metadatas=metas[i:i + BATCH_SIZE],
         )
         report(f"已写入 {min(i + BATCH_SIZE, len(ids))}/{len(ids)} 个片段")
+
+    try:
+        build_bm25_index(ids, docs, config.BM25_DIR, progress=report)
+    except Exception as exc:  # BM25 失败不影响向量检索
+        report(f"BM25 索引构建失败（不影响向量检索）：{exc}")
 
     elapsed = time.time() - started
     summary = {

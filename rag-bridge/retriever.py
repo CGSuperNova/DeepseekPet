@@ -1,10 +1,12 @@
 """
 混合检索：向量检索 + BM25 关键词检索 → RRF 融合 → 重排 → 阈值过滤。
 
-设计要点：
-- 模型惰性加载、进程内复用（见 models.py）；
-- 向量库中的文档快照缓存在内存里，可直接搜索、也可按关键词本地过滤；
-- 建库后调用 reload() 即可热更新，无需重启 Web 服务。
+性能优化（v2）：
+- BM25 由 rank-bm25 换成 bm25s（SciPy 稀疏矩阵 + 内存映射，快 1~2 个数量级）；
+- 不再把全量文档 / 元数据拉进内存：向量走 collection.query，BM25 走 bm25s.retrieve，
+  只按 top-k 从向量库取命中文档；
+- 查询级 LRU 缓存（精确命中整条链路直接返回）+ 语义缓存（相似问题复用）；
+- 重排串行化，避免多请求并发时线程超订。
 
 author: buzizi (2026级电子商务陈逸轩)
 """
@@ -12,10 +14,13 @@ author: buzizi (2026级电子商务陈逸轩)
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import threading
+import time
 from collections import OrderedDict
+from pathlib import Path
 
 import jieba
 import numpy as np
@@ -37,7 +42,7 @@ for _word in (
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
-# 中文常见疑问道词，BM25 里属于噪声
+# 中文常见疑问词与虚词，BM25 里属于噪声
 _STOPWORDS = {
     "什么", "怎么", "如何", "为什么", "哪里", "哪些", "是否", "可以", "有没有",
     "请问", "告诉", "一下", "这个", "那个", "我们", "你们", "他们", "以及",
@@ -67,7 +72,7 @@ class KnowledgeBaseEmpty(RuntimeError):
 
 # ---------------------------------------------------------------- 重排结果缓存
 # 键为「问题 + 片段内容哈希」：同一问题重复提问、或多轮对话里反复用到同一片段时，
-# 可直接复用上次的分数，省掉整段重排（约几十秒）。
+# 可直接复用上次的分数，省掉整段重排。
 _rerank_cache: "OrderedDict[str, float]" = OrderedDict()
 
 
@@ -94,7 +99,7 @@ def _cache_put(key: str, value: float) -> None:
 
 
 def rerank_cache_info() -> dict:
-    """给状态接口/运维看的缓存概况。"""
+    """给状态接口/运维看的重排缓存概况。"""
     return {
         "entries": len(_rerank_cache),
         "size": getattr(config, "RERANK_CACHE_SIZE", 0) or 0,
@@ -103,16 +108,106 @@ def rerank_cache_info() -> dict:
     }
 
 
+# ---------------------------------------------------------------- 查询级缓存
+# 键 (query, top_k) -> (result, timestamp)。命中则整条检索链路直接返回。
+_query_cache: "OrderedDict[tuple, tuple]" = OrderedDict()
+
+
+def clear_query_cache() -> None:
+    _query_cache.clear()
+
+
+def _query_cache_get(key: tuple):
+    if key in _query_cache:
+        value, ts = _query_cache[key]
+        ttl = getattr(config, "QUERY_CACHE_TTL", 0) or 0
+        if ttl > 0 and (time.time() - ts) > ttl:
+            _query_cache.pop(key, None)
+            return None
+        _query_cache.move_to_end(key)
+        return value
+    return None
+
+
+def _query_cache_put(key: tuple, value) -> None:
+    size = getattr(config, "QUERY_CACHE_SIZE", 0) or 0
+    if size <= 0:
+        return
+    _query_cache[key] = (value, time.time())
+    _query_cache.move_to_end(key)
+    while len(_query_cache) > size:
+        _query_cache.popitem(last=False)
+
+
+# ---------------------------------------------------------------- 语义缓存
+# 每条缓存只存一个 query 向量 + 结果。命中用余弦相似度 + 阈值判断。
+# 缓存很小（默认 1024 条），线性扫描已足够；如需更大规模可换 hnswlib。
+_semantic_cache: list[dict] = []
+_semantic_lock = threading.Lock()
+
+
+def clear_semantic_cache() -> None:
+    with _semantic_lock:
+        _semantic_cache.clear()
+
+
+def _semantic_lookup(q_vec: np.ndarray, top_k: int):
+    threshold = getattr(config, "SEMANTIC_CACHE_THRESHOLD", 0.95) or 0.95
+    if threshold <= 0:
+        return None
+    q_norm = float(np.linalg.norm(q_vec))
+    if q_norm == 0:
+        return None
+    with _semantic_lock:
+        best = None
+        best_sim = -1.0
+        for entry in _semantic_cache:
+            if entry["top_k"] != top_k:
+                continue
+            sim = float(np.dot(q_vec, entry["vec"])) / (q_norm * entry["norm"] + 1e-12)
+            if sim > best_sim:
+                best_sim = sim
+                best = entry
+        if best is not None and best_sim >= threshold:
+            return best["result"]
+    return None
+
+
+def _semantic_put(q_vec: np.ndarray, result: list, top_k: int) -> None:
+    size = getattr(config, "SEMANTIC_CACHE_SIZE", 0) or 0
+    if size <= 0:
+        return
+    with _semantic_lock:
+        _semantic_cache.append({
+            "vec": np.asarray(q_vec, dtype="float32").copy(),
+            "norm": float(np.linalg.norm(q_vec)),
+            "result": result,
+            "top_k": top_k,
+        })
+        while len(_semantic_cache) > size:
+            _semantic_cache.pop(0)
+
+
+# ---------------------------------------------------------------- 重排串行化
+# waitress 多线程下，若两个请求同时进入重排，会各起 8 个 torch 线程争抢 CPU。
+# 用一把锁强制重排串行：单请求耗时不变，多请求吞吐与尾部延迟显著改善。
+_rerank_lock = threading.Lock()
+
+
+def clear_all_caches() -> None:
+    clear_query_cache()
+    clear_semantic_cache()
+    _rerank_cache.clear()
+
+
 class HybridRetriever:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._loaded = False
         self._client = None
         self._collection = None
-        self._bm25 = None
-        self.all_docs: list[str] = []
-        self.all_metas: list[dict] = []
-        self.all_ids: list[str] = []
+        self._bm25 = None          # bm25s.BM25 索引（mmap 加载）
+        self._ids: list[str] = []  # 与 BM25 索引对齐的 ChromaDB id 列表
 
     # ------------------------------------------------------------ 连接与缓存
     def _connect(self):
@@ -131,40 +226,86 @@ class HybridRetriever:
             )
         return self._collection
 
+    def _bm25_dir(self) -> Path:
+        return config.BM25_DIR
+
+    def _bm25_ids_file(self) -> Path:
+        return self._bm25_dir() / "ids.json"
+
     def ensure_loaded(self) -> None:
-        """把向量库中的片段读进内存，构建 BM25 索引。"""
+        """加载 BM25 索引（内存映射）。不再把全量文档 / 元数据拉进内存。"""
         if self._loaded:
             return
         with self._lock:
             if self._loaded:
                 return
-            data = self.collection.get(include=["documents", "metadatas"])
-            self.all_docs = list(data.get("documents") or [])
-            self.all_metas = [m or {} for m in (data.get("metadatas") or [])]
-            self.all_ids = list(data.get("ids") or [])
-
-            if self.all_docs:
-                from rank_bm25 import BM25Okapi
-
-                tokenized = [tokenize(doc) for doc in self.all_docs]
-                # BM25 对空文档会抛异常，这里兜一个占位 token
-                tokenized = [t or ["\u200b"] for t in tokenized]
-                self._bm25 = BM25Okapi(tokenized)
-            else:
-                self._bm25 = None
+            self._load_bm25()
             self._loaded = True
-            logger.info("知识库已载入内存：%d 个片段", len(self.all_docs))
+
+    def _load_bm25(self) -> None:
+        import bm25s
+
+        ids_file = self._bm25_ids_file()
+        if ids_file.exists():
+            try:
+                self._bm25 = bm25s.BM25.load(str(self._bm25_dir()), mmap=True)
+                self._ids = json.loads(ids_file.read_text(encoding="utf-8"))
+                logger.info("BM25 索引已加载（内存映射）：%d 个片段", len(self._ids))
+                return
+            except Exception as exc:  # pragma: no cover - 索引损坏时重建
+                logger.warning("BM25 索引加载失败，将重建：%s", exc)
+        self._rebuild_bm25()
+
+    def _rebuild_bm25(self) -> None:
+        """一次性：从向量库读全量文档构建 BM25（仅首次 / 迁移旧库时）。"""
+        import bm25s
+
+        try:
+            data = self.collection.get(include=["documents"])
+        except Exception as exc:  # pragma: no cover
+            logger.warning("读取向量库失败，BM25 暂不可用：%s", exc)
+            self._bm25 = None
+            self._ids = []
+            return
+
+        docs = list(data.get("documents") or [])
+        ids = list(data.get("ids") or [])
+        if not docs:
+            self._bm25 = None
+            self._ids = []
+            return
+
+        tokenized = [tokenize(doc) or ["\u200b"] for doc in docs]
+        retriever = bm25s.BM25()
+        retriever.index(tokenized)
+        try:
+            d = self._bm25_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            retriever.save(str(d))
+            self._bm25_ids_file().write_text(
+                json.dumps(ids, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception as exc:  # pragma: no cover - 保存失败仍可用内存版
+            logger.warning("BM25 索引保存失败（仍可用内存版）：%s", exc)
+        self._bm25 = retriever
+        self._ids = ids
+        logger.info("已构建 BM25 索引：%d 个片段", len(ids))
 
     def reload(self) -> None:
-        """重新读取向量库（重建索引后调用）。"""
+        """重新读取向量库与 BM25 索引（重建索引后调用），并清空各级缓存。"""
         with self._lock:
             self._loaded = False
             self._bm25 = None
-            self.all_docs, self.all_metas, self.all_ids = [], [], []
+            self._ids = []
             self._collection = None
+        clear_all_caches()
         self.ensure_loaded()
 
     # ------------------------------------------------------------ 基本信息
+    def count(self) -> int:
+        """当前索引里的片段总数。ChromaDB 原生 O(1)，不触发任何全量加载。"""
+        return self.collection.count()
+
     def stats(self) -> dict:
         try:
             count = self.collection.count()
@@ -174,7 +315,7 @@ class HybridRetriever:
         sources = self.list_sources()
         error = None
         if count == 0 and not sources:
-            error = f"向量库为空：{config.DB_DIR}。请先上传文档并点击「重建索引」。"
+            error = f"向量库为空：{config.DB_DIR}。请先上传文档并重建索引。"
         return {"count": count, "sources": sources, "error": error}
 
     def list_sources(self) -> list[dict]:
@@ -195,14 +336,16 @@ class HybridRetriever:
         return sorted(buckets.values(), key=lambda x: x["source"])
 
     # ------------------------------------------------------------ 两路召回
-    def _vector_search(self, query: str, top_k: int) -> list[dict]:
-        if not self.all_docs:
+    def _vector_search(self, query: str, top_k: int, q_vec=None) -> list[dict]:
+        count = self.collection.count()
+        if count == 0:
             return []
-        model = get_embed_model()
-        q_vec = model.encode([query], normalize_embeddings=True).tolist()
+        if q_vec is None:
+            model = get_embed_model()
+            q_vec = model.encode([query], normalize_embeddings=True).tolist()
         res = self.collection.query(
             query_embeddings=q_vec,
-            n_results=min(top_k, len(self.all_docs)),
+            n_results=min(top_k, count),
             include=["documents", "metadatas", "distances"],
         )
         hits = []
@@ -221,24 +364,41 @@ class HybridRetriever:
         return hits
 
     def _bm25_search(self, query: str, top_k: int) -> list[dict]:
-        if self._bm25 is None or not self.all_docs:
+        if self._bm25 is None or not self._ids:
             return []
         tokens = tokenize(query)
         if not tokens:
             return []
-        scores = self._bm25.get_scores(tokens)
-        order = np.argsort(scores)[::-1][:top_k]
+        try:
+            results, scores = self._bm25.retrieve(
+                [tokens], k=top_k, corpus=self._ids, show_progress=False
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning("BM25 检索失败：%s", exc)
+            return []
+
+        ids = [str(x) for x in np.asarray(results).reshape(-1)]
+        scores = [float(x) for x in np.asarray(scores).reshape(-1)]
+        valid = [i for i, s in zip(ids, scores) if i and s > 0]
+        if not valid:
+            return []
+
+        try:
+            data = self.collection.get(ids=valid, include=["documents", "metadatas"])
+        except Exception as exc:  # pragma: no cover
+            logger.warning("BM25 命中文档读取失败：%s", exc)
+            return []
+
+        doc_by_id = {
+            uid: (doc, meta or {})
+            for uid, doc, meta in zip(data["ids"], data["documents"], data["metadatas"])
+        }
         hits = []
-        for idx in order:
-            score = float(scores[idx])
-            if score <= 0:
+        for uid, score in zip(ids, scores):
+            if score <= 0 or uid not in doc_by_id:
                 continue
-            hits.append({
-                "doc": self.all_docs[idx],
-                "meta": self.all_metas[idx],
-                "bm25_score": score,
-                "id": self.all_ids[idx],
-            })
+            doc, meta = doc_by_id[uid]
+            hits.append({"id": uid, "doc": doc, "meta": meta, "bm25_score": score})
         return hits
 
     # ------------------------------------------------------------ 融合与重排
@@ -275,17 +435,22 @@ class HybridRetriever:
             results.append(item)
         return results
 
-    def _should_skip_rerank(self, vec_results: list[dict], fused: list[dict]) -> bool:
+    def _should_skip_rerank(self, vec_results: list[dict], bm25_results: list[dict], fused: list[dict]) -> bool:
         """判断能否安全跳过重排。
 
-        条件（全部满足才跳过，宁可多算不可错排）：
-        1. RERANK_SKIP_MARGIN > 0（默认 0.08，设 0 即完全关闭该优化）；
-        2. 至少有两个向量命中，且分数可比较；
-        3. RRF 的第一名恰好就是向量检索的第一名 —— 排名没有分歧；
-        4. 向量第一名领先第二名至少 margin（余弦分差）。
+        条件（全部满足才跳过）：
+        1. RERANK_SKIP_MARGIN > 0（设 0 即关闭该优化）；
+        2. 单候选时直接跳过 —— 重排一个候选没有任何排序意义；
+        3. RRF 第一名 == 向量第一名（排名无分歧）；
+        4. 向量第一名领先第二名至少 margin；
+        5. （可选）BM25 第一名也与向量第一名一致 —— 两路独立信号一致，置信度更高。
         """
         margin = getattr(config, "RERANK_SKIP_MARGIN", 0.0) or 0.0
-        if margin <= 0 or len(fused) <= 1 or len(vec_results) < 2:
+        if margin <= 0:
+            return False
+        if len(fused) <= 1:
+            return True
+        if len(vec_results) < 2:
             return False
 
         top_vec = vec_results[0]
@@ -293,19 +458,32 @@ class HybridRetriever:
         if top_vec.get("similarity") is None or second.get("similarity") is None:
             return False
         if fused[0].get("id") != top_vec.get("id"):
-            return False                      # 两路排名有分歧 → 老老实实重排
+            return False
+        if (float(top_vec["similarity"]) - float(second["similarity"])) < margin:
+            return False
+        if getattr(config, "RERANK_SKIP_REQUIRE_BM25", False) and bm25_results:
+            if bm25_results[0].get("id") != top_vec.get("id"):
+                return False
+        return True
 
-        return (float(top_vec["similarity"]) - float(second["similarity"])) >= margin
+    def _dynamic_rerank_k(self, vec_results: list[dict]) -> int:
+        """按向量置信度自适应重排候选数：简单查询少送，难区分查询多送。"""
+        base = config.TOP_K_RERANK
+        if not getattr(config, "DYNAMIC_RERANK_ENABLED", False):
+            return base
+        if len(vec_results) < 2:
+            return max(1, base)
+        try:
+            margin = float(vec_results[0]["similarity"]) - float(vec_results[1]["similarity"])
+        except (TypeError, KeyError):
+            return base
+        threshold = getattr(config, "DYNAMIC_RERANK_MARGIN", 0.12) or 0.12
+        if margin >= threshold:
+            return max(1, min(getattr(config, "DYNAMIC_RERANK_MIN_K", 3), base))
+        return max(base, getattr(config, "DYNAMIC_RERANK_MAX_K", 10))
 
     def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
-        """用交叉编码器重排候选。
-
-        三重提速（实测重排占整条链路约 97% 的时间）：
-        1. 结果缓存：同一 (问题, 片段) 直接复用上次分数；
-        2. 长度截断：只把片段前 RERANK_MAX_LENGTH 个 token 交给模型
-           （耗时几乎正比于 token 数：512→55s，256→26s）；
-        3. 只在必要时才重排（见 retrieve() 里的 RERANK_SKIP_MARGIN）。
-        """
+        """用交叉编码器重排候选。"""
         reranker = get_reranker()
         if not reranker or not candidates:
             return candidates
@@ -327,11 +505,19 @@ class HybridRetriever:
                 max_length = getattr(config, "RERANK_MAX_LENGTH", 0) or 0
                 if max_length > 0:
                     kwargs["max_length"] = max_length
-                try:
-                    scores = reranker.compute_score(pairs, **kwargs)
-                except TypeError:
-                    # 旧版 FlagEmbedding 的 compute_score 不接受 max_length
-                    scores = reranker.compute_score(pairs, batch_size=config.RERANK_BATCH_SIZE)
+
+                def _run():
+                    try:
+                        return reranker.compute_score(pairs, **kwargs)
+                    except TypeError:
+                        # 旧版 FlagEmbedding 的 compute_score 不接受 max_length
+                        return reranker.compute_score(pairs, batch_size=config.RERANK_BATCH_SIZE)
+
+                if getattr(config, "RERANK_SERIAL", True):
+                    with _rerank_lock:
+                        scores = _run()
+                else:
+                    scores = _run()
             except Exception as exc:  # pragma: no cover - 重排模型异常时降级
                 logger.warning("重排失败，降级为 RRF 排序：%s", exc)
                 for item in candidates:
@@ -351,40 +537,58 @@ class HybridRetriever:
         return sorted(known, key=lambda x: x.get("rerank_score", 0.0), reverse=True)
 
     # ------------------------------------------------------------ 对外入口
-    def count(self) -> int:
-        """当前索引里的片段总数（供状态接口与运维检查使用）。"""
-        self.ensure_loaded()
-        return len(self.all_docs)
-
     def retrieve(self, query: str, top_k: int | None = None) -> list[dict]:
-        """完整检索：向量 + BM25 → RRF → 重排 → 阈值过滤。"""
+        """完整检索：向量 + BM25 → RRF → 重排 → 阈值过滤。
+
+        加入了查询级缓存与语义缓存，命中时整条链路直接返回。
+        """
         query = (query or "").strip()
         if not query:
             return []
 
         self.ensure_loaded()
-        if not self.all_docs:
+        if self.collection.count() == 0:
             raise KnowledgeBaseEmpty("向量库为空，请先上传文档并重建索引。")
 
         top_k = top_k or config.TOP_K_FINAL
-        vec_results = self._vector_search(query, config.TOP_K_RETRIEVE)
-        bm25_results = self._bm25_search(query, config.TOP_K_RETRIEVE)
 
-        fused = self._rrf_fusion(vec_results, bm25_results)[: config.TOP_K_RERANK]
+        # 1) 精确查询缓存
+        qkey = (query, top_k)
+        cached = _query_cache_get(qkey)
+        if cached is not None:
+            return cached
+
+        # 2) 编码 query（一次，供向量检索与语义缓存复用）
+        model = get_embed_model()
+        q_vec_np = np.asarray(model.encode([query], normalize_embeddings=True))
+        q_vec_1d = q_vec_np[0].astype("float32")
+        q_vec_2d = q_vec_np.tolist()
+
+        # 3) 语义缓存：相似问题复用
+        if getattr(config, "SEMANTIC_CACHE_ENABLED", False):
+            sem = _semantic_lookup(q_vec_1d, top_k)
+            if sem is not None:
+                _query_cache_put(qkey, sem)
+                return sem
+
+        # 4) 两路召回 + RRF
+        vec_results = self._vector_search(query, config.TOP_K_RETRIEVE, q_vec=q_vec_2d)
+        bm25_results = self._bm25_search(query, config.TOP_K_RETRIEVE)
+        fused = self._rrf_fusion(vec_results, bm25_results)
         if not fused:
             return []
 
-        if self._should_skip_rerank(vec_results, fused):
-            # 排序已经很确定，直接省掉最贵的一步
-            logger.debug("向量检索优势明显，跳过重排")
+        # 5) 重排（可能跳过 / 动态截断候选）
+        if self._should_skip_rerank(vec_results, bm25_results, fused):
+            logger.debug("检索优势明显，跳过重排")
             candidates = fused
         else:
-            candidates = self._rerank(query, fused)
+            rerank_k = self._dynamic_rerank_k(vec_results)
+            candidates = self._rerank(query, fused[:rerank_k])
         if not candidates:
             return []
 
-        # 阈值是可选的「及格线」：只有显式配置了大于 0 的阈值才做过滤，
-        # 否则一律全部保留（否则默认阈值会误杀本该入选的片段）。
+        # 6) 阈值过滤（可选）
         if config.SIMILARITY_THRESHOLD > 0:
             passed = [c for c in candidates if c.get("similarity", 1.0) >= config.SIMILARITY_THRESHOLD]
             if passed:
@@ -394,23 +598,18 @@ class HybridRetriever:
             if passed:
                 candidates = passed
 
-        return candidates[:top_k]
+        final = candidates[:top_k]
+
+        # 7) 写缓存
+        _query_cache_put(qkey, final)
+        if getattr(config, "SEMANTIC_CACHE_ENABLED", False):
+            _semantic_put(q_vec_1d, final, top_k)
+
+        return final
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """纯检索接口（给“检索预览”用，不调用大模型）。"""
         return self.retrieve(query, top_k=top_k)
-
-    def keyword_filter(self, keyword: str) -> list[dict]:
-        """在内存快照里按关键词做一次简单过滤。"""
-        self.ensure_loaded()
-        keyword = (keyword or "").strip().lower()
-        if not keyword:
-            return []
-        hits = []
-        for doc, meta, uid in zip(self.all_docs, self.all_metas, self.all_ids):
-            if keyword in doc.lower() or keyword in str(meta.get("source", "")).lower():
-                hits.append({"id": uid, "doc": doc, "meta": meta})
-        return hits
 
 
 # 进程内单例

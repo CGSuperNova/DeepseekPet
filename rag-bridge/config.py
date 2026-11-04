@@ -67,6 +67,7 @@ def _env_list(name: str) -> tuple[str, ...]:
 # ---------------------------------------------------------------- 目录
 DATA_DIR = _env_path("DATA_DIR", "data")        # 放你的文档（md/txt/pdf/docx）
 DB_DIR = _env_path("DB_DIR", "db_index")        # ChromaDB 向量库
+BM25_DIR = _env_path("BM25_DIR", "bm25_index")  # bm25s 关键词索引（磁盘 / 内存映射）
 LOG_DIR = _env_path("LOG_DIR", "logs")
 
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "knowledge").strip() or "knowledge"
@@ -171,6 +172,30 @@ RERANK_CACHE_SIZE = _env_int("RERANK_CACHE_SIZE", 512)
 # 向量检索第一名明显领先时直接跳过重排。0 = 关闭（总是重排）。
 RERANK_SKIP_MARGIN = _env_float("RERANK_SKIP_MARGIN", 0.08)
 
+# ---- 重排后端：auto 优先 ONNX（需先 export_rerank_onnx.py 导出），失败回退 PyTorch ----
+RERANK_BACKEND = os.getenv("RERANK_BACKEND", "auto").strip()   # auto | onnx | torch
+RERANK_ONNX_PATH = _env_raw("RERANK_ONNX_PATH", "")            # 导出的 .onnx 文件路径
+# 多请求并发时把重排串行化，避免每个请求各起 8 个 torch 线程导致超订
+RERANK_SERIAL = _env_bool("RERANK_SERIAL", True)
+# 跳过重排时是否额外要求 BM25 第一名与向量第一名一致（更保守、置信度更高）
+RERANK_SKIP_REQUIRE_BM25 = _env_bool("RERANK_SKIP_REQUIRE_BM25", False)
+
+# ---- 查询级缓存（整条检索链路，命中直接返回；键 = 问题 + top_k）----
+QUERY_CACHE_SIZE = _env_int("QUERY_CACHE_SIZE", 512)   # 精确查询 LRU 条数；0 = 关闭
+QUERY_CACHE_TTL = _env_int("QUERY_CACHE_TTL", 0)       # 秒；0 = 不过期（reload 时清空）
+
+# ---- 语义缓存（相似问题复用结果）----
+SEMANTIC_CACHE_ENABLED = _env_bool("SEMANTIC_CACHE_ENABLED", True)
+SEMANTIC_CACHE_SIZE = _env_int("SEMANTIC_CACHE_SIZE", 1024)
+# 余弦相似度阈值（0~1），越大越保守；需按自己的数据校准
+SEMANTIC_CACHE_THRESHOLD = _env_float("SEMANTIC_CACHE_THRESHOLD", 0.95)
+
+# ---- 动态 TOP_K_RERANK：按向量置信度自适应候选数 ----
+DYNAMIC_RERANK_ENABLED = _env_bool("DYNAMIC_RERANK_ENABLED", True)
+DYNAMIC_RERANK_MARGIN = _env_float("DYNAMIC_RERANK_MARGIN", 0.12)  # 向量 top1-top2 分差阈值
+DYNAMIC_RERANK_MIN_K = _env_int("DYNAMIC_RERANK_MIN_K", 3)          # 分差大时只重排这么少
+DYNAMIC_RERANK_MAX_K = _env_int("DYNAMIC_RERANK_MAX_K", 10)         # 分差小时放大到这么多
+
 # 阈值是「可选及格线」：只有显式设置 > 0 时才做过滤，否则一律全部保留。
 # 不要为了方便而随手填一个默认阈值，否则会误杀本该入选的片段。
 SIMILARITY_THRESHOLD = _env_float("SIMILARITY_THRESHOLD", 0.0)
@@ -237,8 +262,8 @@ CORS_ORIGINS = _env_list("CORS_ORIGINS")
 
 
 def ensure_dirs() -> None:
-    """建好数据 / 向量库 / 日志目录。"""
-    for d in (DATA_DIR, DB_DIR, LOG_DIR):
+    """建好数据 / 向量库 / BM25 索引 / 日志目录。"""
+    for d in (DATA_DIR, DB_DIR, BM25_DIR, LOG_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
