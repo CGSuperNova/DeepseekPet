@@ -18,6 +18,8 @@ public final class ConfigManager {
     private YamlConfiguration config;
     private YamlConfiguration persona;
     private YamlConfiguration ambient;
+    private YamlConfiguration feeding;
+    private YamlConfiguration feedingFoods;
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -29,6 +31,8 @@ public final class ConfigManager {
         this.config = (YamlConfiguration) plugin.getConfig();
         this.persona = load("persona.yml");
         this.ambient = load("ambient.yml");
+        this.feeding = load("feeding/config.yml");
+        this.feedingFoods = load("feeding/foods.yml");
     }
 
     private YamlConfiguration load(String name) {
@@ -49,6 +53,14 @@ public final class ConfigManager {
 
     public YamlConfiguration ambient() {
         return ambient;
+    }
+
+    public YamlConfiguration feeding() {
+        return feeding;
+    }
+
+    public YamlConfiguration feedingFoods() {
+        return feedingFoods;
     }
 
     // ---------------------------------------------------------------- pet

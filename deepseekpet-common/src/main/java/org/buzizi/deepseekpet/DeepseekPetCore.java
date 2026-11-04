@@ -15,6 +15,7 @@ import org.buzizi.deepseekpet.command.DeepseekPetCommand;
 import org.buzizi.deepseekpet.core.config.ConfigManager;
 import org.buzizi.deepseekpet.core.pet.PetInstance;
 import org.buzizi.deepseekpet.core.pet.PetManager;
+import org.buzizi.deepseekpet.feeding.FeedingManager;
 import org.buzizi.deepseekpet.gui.InteractionGui;
 import org.buzizi.deepseekpet.listener.ChatInputListener;
 import org.buzizi.deepseekpet.listener.GuiListener;
@@ -42,6 +43,7 @@ public final class DeepseekPetCore {
     private ChatService chat;
     private PetManager pets;
     private AmbientLineManager ambient;
+    private FeedingManager feeding;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -58,6 +60,7 @@ public final class DeepseekPetCore {
         this.memory = new MemoryStore(plugin, config);
         this.chat = new ChatService(plugin, config, persona);
         this.pets = new PetManager(plugin, config);
+        this.feeding = new FeedingManager(plugin, config, this);
         this.ambient = new AmbientLineManager(plugin, config, this);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
@@ -67,6 +70,7 @@ public final class DeepseekPetCore {
 
         registerCommand();
 
+        this.feeding.enable();
         this.ambient.start();
         startPetSweeper();
 
@@ -75,6 +79,9 @@ public final class DeepseekPetCore {
 
     public void disable() {
         ambient.shutdown();
+        if (feeding != null) {
+            feeding.disable();
+        }
         pets.despawnAll();
         memory.flushAll();
         dialogSessions.clear();
@@ -121,6 +128,12 @@ public final class DeepseekPetCore {
 
     /** 处理一条来自玩家的对话消息（线程安全：内部会异步调用 AI）。 */
     public void handleDialogMessage(Player player, String text) {
+        if (!feeding.canTalk(player.getUniqueId())) {
+            player.sendMessage(Text.color(feeding.refuseLine()));
+            return;
+        }
+        feeding.onDialog(player);
+
         UUID id = player.getUniqueId();
         List<Message> prior = List.copyOf(memory.getHistory(id));
         memory.append(id, "user", text);
@@ -193,5 +206,9 @@ public final class DeepseekPetCore {
 
     public AmbientLineManager ambient() {
         return ambient;
+    }
+
+    public FeedingManager feeding() {
+        return feeding;
     }
 }

@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 新增 MIT 许可证（`LICENSE`）。
 - 付费版 `deepseekpet-premium/` 改为私有模块：加入 `.gitignore`，不再推送到公开仓库；
   本地构建需显式激活 `-Ppremium` profile。
+- 新增喂食系统（free / premium 均含）：
+  - 鲸鱼娘拥有 20 点饱食度，随时间自然减少、每次主动对话也会消耗；
+  - 手持可食用物品右键（双击确认）喂食，恢复值默认取原版食物，可在 `feeding/foods.yml` 覆盖；
+  - 饥饿值低于阈值时自主喊饿，归零时拒绝对话；
+  - 配置独立放在 `plugins/DeepseekPet/feeding/`；
+  - 新增 `/dp hunger` 查看饱食度。
+- 【Premium 专有】喂食表现：可配置每种食物吃下后的台词、自定义命令、进食/进食后动画。
 
 ## [1.0.0] - 2026-10-31
 

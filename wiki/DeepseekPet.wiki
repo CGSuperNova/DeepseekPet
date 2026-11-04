@@ -197,6 +197,26 @@ py server.py       # 默认 127.0.0.1:8100
 | 固定间隔 || <code>interval-seconds: 600</code> || 每隔 600 秒
 |}
 
+== 喂食系统 ==
+
+鲸鱼娘拥有 <code>hunger.max</code>（默认 20）点饱食度，配置独立放在
+<code>plugins/DeepseekPet/feeding/</code>：
+
+* <code>feeding/config.yml</code> — 饥饿值、自然减少、对话消耗、喊饿 / 拒绝对话；
+* <code>feeding/foods.yml</code> — 食物恢复值覆盖 +（premium）进食台词/命令/动作。
+
+饱食度减少来源：
+
+* 自然减少：每 <code>natural.interval-seconds</code>（默认 30）秒减少 <code>natural.amount</code>（默认 1）；
+* 主动对话：每次减少 <code>dialog-cost</code>（默认 1）；鲸鱼娘自主台词不算。
+
+喂食方式：手持可食用物品右键鲸鱼娘，第一次只是提示，第二次右键（默认 3 秒内）才真正喂食。
+恢复值默认取原版食物，可在 <code>foods.yml</code> 覆盖（如金苹果改成 8）。
+
+* 饱食度低于 <code>hungry-threshold</code>（默认 6）时自主喊饿；
+* 饱食度归零时拒绝对话；
+* <code>/dp hunger</code> 查看当前饱食度。
+
 == Free 与 Premium ==
 
 {| class="wikitable"
@@ -212,6 +232,10 @@ py server.py       # 默认 127.0.0.1:8100
 |-
 | 收起 / 释放 || ✅ || ✅
 |-
+| 喂食系统（饥饿值 / 喂食） || ✅ || ✅
+|-
+| 进食台词/命令/动作 || ❌ || ✅
+|-
 | 长期记忆摘要 || ❌ || ✅
 |-
 | 代码混淆 || ❌ || ✅
@@ -221,13 +245,13 @@ py server.py       # 默认 127.0.0.1:8100
 
 <pre>
 # 免费版
-mvn clean package -pl deepseekpet-free -am
+mvn clean package
 
 # 付费版（开发）
-mvn clean package -pl deepseekpet-premium -am
+mvn clean package -Ppremium
 
 # 付费版（发布，混淆）
-mvn clean package -pl deepseekpet-premium -am -Pobfuscate
+mvn clean package -Ppremium -Pobfuscate
 </pre>
 
 == 常见问题 ==

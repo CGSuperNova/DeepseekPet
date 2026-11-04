@@ -14,7 +14,7 @@ commands:
   deepseekpet:
     description: DeepseekPet 主指令
     aliases: [dp]
-    usage: /<command> [show|hide|toggle|end|info|reload]
+    usage: /<command> [show|hide|toggle|end|hunger|info|reload]
 
 permissions:
   deepseekpet.use:

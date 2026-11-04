@@ -45,6 +45,9 @@
   - 指定日期段、单双周、工作日/休息日；
   - 每隔固定时长执行一次。
 - 🎛️ **收起/释放**：`/dp show|hide|toggle` 控制鲸鱼娘显隐。
+- 🍚 **喂食系统**：鲸鱼娘有 20 点饱食度，会随时间自然减少、每次对话也会消耗；
+  手持可食用物品右键（点两下确认防误触）喂食，按原版食物恢复值补充。饥饿值过低会喊饿，
+  归零则拒绝交流。配置在 `plugins/DeepseekPet/feeding/`。
 
 ### 付费版（Premium）
 
@@ -52,6 +55,7 @@
 - 额外 premium 专有功能（通过 `PremiumFeatureRegistry` 扩展）：
   - **长期记忆摘要**：历史超过上限时，自动把较早对话概括成长期记忆沉淀到本地，
     让鲸鱼娘记得更久；
+  - **喂食表现**：可配置鲸鱼娘吃下每种食物后的台词、自定义命令、进食/进食后动作；
 - 发布构建支持 **ProGuard 混淆**，防止付费版逻辑被轻易反编译。
 
 > 后续新增的付费功能会在更新日志中明确标注「Premium 专有」。
@@ -172,6 +176,7 @@ py server.py                # 默认 127.0.0.1:8100
 - 玩家进服后，鲸鱼娘自动生成在身旁，头顶显示「玩家 XXX 的鲸鱼娘」；
 - **右键点击鲸鱼娘** → 打开交互 GUI → 点「💬 与鲸鱼娘对话」→ 进入对话框，
   之后在聊天栏直接打字即可发给鲸鱼娘；输入 `/dp end` 结束对话；
+- **喂食**：手持可食用物品右键鲸鱼娘，第一次提示确认，第二次右键（默认 3 秒内）完成喂食；
 - 指令：
 
 | 指令 | 说明 |
@@ -180,6 +185,7 @@ py server.py                # 默认 127.0.0.1:8100
 | `/dp hide` | 收起鲸鱼娘 |
 | `/dp toggle` | 显示 / 隐藏切换 |
 | `/dp end` | 结束与鲸鱼娘的对话 |
+| `/dp hunger` | 查看鲸鱼娘的饱食度 |
 | `/dp info` | 查看版本 |
 | `/dp reload` | 重载配置（`deepseekpet.admin`） |
 
@@ -190,6 +196,8 @@ py server.py                # 默认 127.0.0.1:8100
 - `plugins/DeepseekPet/config.yml` — 主配置（宠物、AI、随机台词、提示文本）；
 - `plugins/DeepseekPet/persona.yml` — 鲸鱼娘角色卡（system prompt 来源）；
 - `plugins/DeepseekPet/ambient.yml` — 定时/条件随机台词规则；
+- `plugins/DeepseekPet/feeding/config.yml` — 喂食系统（饥饿值、自然减少、对话消耗、喊饿/拒绝对话）；
+- `plugins/DeepseekPet/feeding/foods.yml` — 食物恢复值覆盖 +（premium）进食台词/命令/动作；
 - `rag-bridge/persona.txt` — rag-bridge 侧的角色卡（与 persona.yml 对应）。
 
 随机台词条件示例（`ambient.yml`）：
@@ -218,6 +226,8 @@ rules:
 | RAG + 云端 AI + 持久记忆 | ✅ | ✅ |
 | 定时/条件随机台词 | ✅ | ✅ |
 | 收起 / 释放 | ✅ | ✅ |
+| 喂食系统（饥饿值 / 喂食） | ✅ | ✅ |
+| 进食台词/命令/动作 | ❌ | ✅ |
 | 长期记忆摘要 | ❌ | ✅ |
 | 代码混淆 | ❌ | ✅ |
 

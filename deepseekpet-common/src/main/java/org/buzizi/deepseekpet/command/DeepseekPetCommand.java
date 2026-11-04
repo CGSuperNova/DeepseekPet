@@ -18,7 +18,7 @@ import java.util.List;
 public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "show", "hide", "toggle", "end", "reload", "info"
+            "show", "hide", "toggle", "end", "hunger", "reload", "info"
     );
 
     private final DeepseekPetCore core;
@@ -38,6 +38,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
             case "hide", "remove" -> handleHide(sender);
             case "toggle" -> handleToggle(sender);
             case "end", "exit", "quit" -> handleEnd(sender);
+            case "hunger" -> handleHunger(sender);
             case "reload" -> handleReload(sender);
             case "info", "version" -> handleInfo(sender);
             default -> sendHelp(sender);
@@ -90,6 +91,16 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         core.endDialog(player);
     }
 
+    private void handleHunger(CommandSender sender) {
+        Player player = requirePlayer(sender);
+        if (player == null) {
+            return;
+        }
+        int hunger = core.feeding().hunger(player.getUniqueId());
+        int max = core.feeding().maxHunger();
+        player.sendMessage(Text.color("&b鲸鱼娘的饱食度：&f" + hunger + "/" + max));
+    }
+
     private void handleReload(CommandSender sender) {
         if (!sender.hasPermission("deepseekpet.admin")) {
             sender.sendMessage(Text.color("&c你没有权限执行此操作"));
@@ -97,6 +108,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         }
         core.config().reload();
         core.ambient().reloadRules();
+        core.feeding().reload();
         sender.sendMessage(Text.color(core.config().message("reloaded", "&aDeepseekPet 配置已重载")));
     }
 
@@ -119,6 +131,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Text.color("&f/dp hide &7收起鲸鱼娘"));
         sender.sendMessage(Text.color("&f/dp toggle &7显示/隐藏切换"));
         sender.sendMessage(Text.color("&f/dp end &7结束与鲸鱼娘的对话"));
+        sender.sendMessage(Text.color("&f/dp hunger &7查看鲸鱼娘的饱食度"));
         sender.sendMessage(Text.color("&f/dp info &7查看版本"));
         if (sender.hasPermission("deepseekpet.admin")) {
             sender.sendMessage(Text.color("&f/dp reload &7重载配置"));

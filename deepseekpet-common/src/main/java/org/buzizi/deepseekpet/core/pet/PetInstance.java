@@ -117,6 +117,34 @@ public final class PetInstance {
         }
     }
 
+    /**
+     * 播放 ItemsAdder 模型动画（如进食、拍肚子）。
+     * 模型里没有该动画时会安全跳过。
+     *
+     * @param animation 动画名（与模型中定义的动画一致）
+     * @param onFinish  播放结束后的回调，可为 null
+     * @return 是否成功发起播放
+     */
+    public boolean playAnimation(String animation, Runnable onFinish) {
+        if (customEntity == null || entity == null || !entity.isValid()) {
+            return false;
+        }
+        if (animation == null || animation.isBlank()) {
+            return false;
+        }
+        Runnable callback = onFinish == null ? () -> {
+        } : onFinish;
+        try {
+            return customEntity.playAnimation(animation, callback);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public boolean playAnimation(String animation) {
+        return playAnimation(animation, null);
+    }
+
     public boolean isValid() {
         return entity != null && entity.isValid() && customEntity != null;
     }

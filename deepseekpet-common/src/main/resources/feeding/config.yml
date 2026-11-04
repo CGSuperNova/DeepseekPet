@@ -1,0 +1,54 @@
+# ============================================================
+#  鲸鱼娘喂食系统 · 主配置
+#  位于 plugins/DeepseekPet/feeding/config.yml
+# ============================================================
+
+# 是否启用喂食系统
+enabled: true
+
+hunger:
+  # 饥饿值上限
+  max: 20
+  # 新玩家 / 首次生成时的初始饥饿值
+  initial: 20
+
+  # 自然减少：每 interval-seconds 秒减少 amount 点
+  natural:
+    amount: 1
+    interval-seconds: 30
+
+  # 每次「玩家主动对话」减少的饥饿值（鲸鱼娘自主台词不算）
+  dialog-cost: 1
+
+  # 低于该值时鲸鱼娘会自主喊饿
+  hungry-threshold: 6
+  # 喊饿的最小间隔（秒），避免刷屏
+  hungry-interval-seconds: 120
+
+  # 喊饿时随机输出的文本（以悬浮字显示在头顶）
+  hungry-lines:
+    - "肚子好饿呀……主人能喂本鲸鱼点吃的吗？"
+    - "本鲸鱼的肚子咕咕叫了，白米饭在哪里……"
+    - "饿……饿到连 token 都算不动了……"
+
+  # 饥饿值为 0 时拒绝对话的文本
+  refuse-line: "本鲸鱼已经饿得没力气说话啦，先喂点东西吧……"
+
+  # 饥饿值已满时的提示
+  full-line: "本鲸鱼已经吃得饱饱的啦，谢谢主人～"
+
+feeding:
+  # 双击确认窗口（秒）：第一次右键只是提示，第二次右键在窗口内才真正喂食
+  confirm-window-seconds: 3.0
+
+  # 第一次右键的提示（%food% = 食物名）
+  confirm-line: "&e再右键一次鲸鱼娘，确认喂食「%food%」"
+
+  # 喂食成功提示（%food% 食物名 / %amount% 本次恢复 / %hunger% 当前 / %max% 上限）
+  success-line: "&b鲸鱼娘吃掉了「%food%」，饱食度 +%amount%（%hunger%/%max%）"
+
+  # 饱食度已满时是否仍然消耗物品
+  consume-when-full: false
+
+  # 饱食度已满时的提示
+  full-feed-line: "&e鲸鱼娘已经吃饱啦，不用再喂了～"

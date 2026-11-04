@@ -1,0 +1,46 @@
+# ============================================================
+#  鲸鱼娘喂食系统 · 食物配置
+#  位于 plugins/DeepseekPet/feeding/foods.yml
+# ============================================================
+#
+# 默认：食物恢复的饱食度按「原版食物玩家食用后恢复的饱食度」计算。
+# 这里可以覆盖个别食物的数值，也可以（premium）配置吃下后的台词/命令/动作。
+#
+# 写法：
+# foods:
+#   <MATERIAL 名称>:
+#     hunger: 8                    # 覆盖原版恢复值（整数，可选）
+#     message: "文本"              # premium 专有：吃下后的台词（悬浮字）
+#     commands:                    # premium 专有：执行的自定义命令（%player% = 玩家名）
+#       - "say %player% 喂鲸鱼娘吃了东西"
+#     animation: "eat"             # premium 专有：进食动作（需模型里存在该动画）
+#     after-animation: "pat_belly" # premium 专有：进食后动作
+#
+# 说明：
+#   - 免费版只会读取 hunger，其余字段会被忽略；
+#   - animation / after-animation 需要 ItemsAdder 模型里确实定义了对应动画，
+#     否则会被安全跳过（见 model/EXPORT.md）。
+#
+# 下面已内置两条常见覆盖示例，其余按需补充。
+
+foods:
+  # 金苹果：原版恢复 4，这里改成 8
+  GOLDEN_APPLE:
+    hunger: 8
+
+  # 附魔金苹果：原版恢复 4，这里改成 12
+  ENCHANTED_GOLDEN_APPLE:
+    hunger: 12
+
+  # ---- premium 专有字段示例（免费版忽略；需要时取消注释）----
+  # BREAD:
+  #   hunger: 5
+  #   message: "面包！本鲸鱼最喜欢面包啦～"
+  #   commands:
+  #     - "say %player% 喂鲸鱼娘吃了面包"
+  #   animation: "eat"
+  #   after-animation: "pat_belly"
+  # GOLDEN_CARROT:
+  #   hunger: 6
+  #   message: "金胡萝卜！本鲸鱼的眼睛都要发光啦～"
+  #   animation: "eat"

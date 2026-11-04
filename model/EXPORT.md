@@ -56,4 +56,7 @@
 
 - 把 `whalechan.png` 替换成精细的像素画（保持 64×64 或按需放大 UV）；
 - 在 BlockBench 中为骨骼添加 `walk` / `idle` / `sit` 等动画，让鲸鱼娘更生动；
+- （Premium 喂食）可额外添加 `eat`（进食）/ `pat_belly`（拍拍肚子）等动画，
+  然后在 `plugins/DeepseekPet/feeding/foods.yml` 里为食物配置 `animation` / `after-animation`，
+  插件会在喂食时自动播放；
 - 保持方块（voxel）风格，遵循 Minecraft 风格指南。
