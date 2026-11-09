@@ -135,6 +135,39 @@ public final class ConfigManager {
         return config.getInt("ambient.check-interval-seconds", 30);
     }
 
+    // ---------------------------------------------------------------- follow / fallback / info
+    public boolean followDefaultEnabled() {
+        return config.getBoolean("follow.default-enabled", true);
+    }
+
+    public double armorStandFollowDistance() {
+        return config.getDouble("fallback.armorstand.follow-distance", 10);
+    }
+
+    public double armorStandTpDistance() {
+        return config.getDouble("fallback.armorstand.tp-distance", 2);
+    }
+
+    public boolean infoEnabled() {
+        return config.getBoolean("info.enabled", true);
+    }
+
+    public boolean infoVault() {
+        return config.getBoolean("info.vault", true);
+    }
+
+    public boolean infoInventory() {
+        return config.getBoolean("info.inventory", true);
+    }
+
+    public int infoCacheSeconds() {
+        return config.getInt("info.cache-seconds", 3);
+    }
+
+    public String infoCustomPlaceholders() {
+        return config.getString("info.custom-placeholders", "");
+    }
+
     // ---------------------------------------------------------------- messages
     public String message(String key, String def) {
         return config.getString("messages." + key, def);

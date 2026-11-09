@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 配置独立放在 `plugins/DeepseekPet/feeding/`；
   - 新增 `/dp hunger` 查看饱食度。
 - 【Premium 专有】喂食表现：可配置每种食物吃下后的台词、自定义命令、进食/进食后动画。
+- 新增 ItemsAdder 缺失时的降级方案（free / premium 均含）：
+  - 一级：Citizens 玩家模型 NPC（无动画，导航跟随）；
+  - 二级：原版盔甲架（蓝色皮革甲 + 玩家头颅，无动画，超出距离传送跟随并避免卡墙）。
+- 新增跟随开关 `/dp follow [on|off]`：关闭后不再跟随（含跨世界），重新生成时回到玩家身边。
+- 新增更丰富的信息读取并注入对话：
+  - free：Vault 金币、背包 + 末影箱摘要；
+  - premium：PlaceholderAPI Player 扩展、CMI 采纳变量（依据 `CMI 采纳变量合集.md`）、自定义 PAPI 变量；
+  - 带缓存（默认 3 秒），注意性能。
+- 新增日志系统：`plugins/DeepseekPet/logs/deepseekpet.log` 记录运行时与玩家操作事件。
 
 ## [1.0.0] - 2026-10-31
 

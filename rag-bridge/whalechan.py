@@ -17,15 +17,19 @@ from service import retrieve_contexts
 logger = logging.getLogger("whalechan")
 
 
-def chat(question: str, history: list[dict] | None = None) -> dict:
+def chat(question: str, history: list[dict] | None = None, player_context: str | None = None) -> dict:
     started = time.time()
     history = history or []
+
+    system = config.PERSONA_PROMPT
+    if player_context:
+        system = system + "\n\n【主人当前信息】（回答问题时参考，不要逐字复述）：\n" + player_context
 
     contexts = retrieve_contexts(question)
     sources = format_sources(contexts)
 
     if contexts:
-        answer = llm.complete_with_system(config.PERSONA_PROMPT, question, contexts, history)
+        answer = llm.complete_with_system(system, question, contexts, history)
         return {
             "answer": answer,
             "sources": sources,
@@ -34,7 +38,7 @@ def chat(question: str, history: list[dict] | None = None) -> dict:
             "elapsed": round(time.time() - started, 2),
         }
 
-    answer = llm.chat_with_system(config.PERSONA_PROMPT, question, history)
+    answer = llm.chat_with_system(system, question, history)
     return {
         "answer": answer,
         "sources": [],

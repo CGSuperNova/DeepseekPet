@@ -26,6 +26,10 @@ public final class PetInteractListener implements Listener {
 
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent event) {
+        // Citizens NPC 由 CitizensInteractListener 处理，避免重复
+        if (event.getRightClicked().hasMetadata("NPC")) {
+            return;
+        }
         PetInstance pet = core.pets().byEntity(event.getRightClicked());
         if (pet == null) {
             return;

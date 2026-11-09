@@ -12,22 +12,24 @@ import org.buzizi.deepseekpet.ai.Message;
 import org.buzizi.deepseekpet.ai.Persona;
 import org.buzizi.deepseekpet.ambient.AmbientLineManager;
 import org.buzizi.deepseekpet.command.DeepseekPetCommand;
+import org.buzizi.deepseekpet.context.PlayerContextBuilder;
 import org.buzizi.deepseekpet.core.config.ConfigManager;
 import org.buzizi.deepseekpet.core.pet.PetInstance;
 import org.buzizi.deepseekpet.core.pet.PetManager;
 import org.buzizi.deepseekpet.feeding.FeedingManager;
 import org.buzizi.deepseekpet.gui.InteractionGui;
 import org.buzizi.deepseekpet.listener.ChatInputListener;
+import org.buzizi.deepseekpet.listener.CitizensInteractListener;
 import org.buzizi.deepseekpet.listener.GuiListener;
 import org.buzizi.deepseekpet.listener.JoinQuitListener;
 import org.buzizi.deepseekpet.listener.PetInteractListener;
+import org.buzizi.deepseekpet.util.PluginLog;
 import org.buzizi.deepseekpet.util.Text;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
 
 /**
  * DeepseekPet 核心：free 与 premium 共享的全部能力都从这里组装。
@@ -38,12 +40,14 @@ public final class DeepseekPetCore {
     private final boolean premium;
 
     private ConfigManager config;
+    private PluginLog log;
     private Persona persona;
     private MemoryStore memory;
     private ChatService chat;
     private PetManager pets;
     private AmbientLineManager ambient;
     private FeedingManager feeding;
+    private PlayerContextBuilder context;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -54,6 +58,7 @@ public final class DeepseekPetCore {
     }
 
     public void enable() {
+        this.log = new PluginLog(plugin);
         this.config = new ConfigManager(plugin);
         this.config.reload();
         this.persona = new Persona(config);
@@ -62,19 +67,24 @@ public final class DeepseekPetCore {
         this.pets = new PetManager(plugin, config);
         this.feeding = new FeedingManager(plugin, config, this);
         this.ambient = new AmbientLineManager(plugin, config, this);
+        this.context = new PlayerContextBuilder(config);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new GuiListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new ChatInputListener(this), plugin);
+        if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
+            plugin.getServer().getPluginManager().registerEvents(new CitizensInteractListener(this), plugin);
+        }
 
         registerCommand();
 
         this.feeding.enable();
         this.ambient.start();
         startPetSweeper();
+        startFollowTicker();
 
-        plugin.getLogger().info("DeepseekPet" + (premium ? " (premium)" : " (free)") + " 已启用，作者：buzizi");
+        log.info("DeepseekPet" + (premium ? " (premium)" : " (free)") + " 已启用，作者：buzizi；宠物后端：" + backendName());
     }
 
     public void disable() {
@@ -85,6 +95,7 @@ public final class DeepseekPetCore {
         pets.despawnAll();
         memory.flushAll();
         dialogSessions.clear();
+        log.info("DeepseekPet 已禁用");
     }
 
     private void registerCommand() {
@@ -98,6 +109,21 @@ public final class DeepseekPetCore {
 
     private void startPetSweeper() {
         Bukkit.getScheduler().runTaskTimer(plugin, () -> pets.sweepInvalid(), 200L, 200L);
+    }
+
+    private void startFollowTicker() {
+        // 每 10 tick 驱动一次跟随逻辑（Citizens 导航 / 盔甲架传送；狼 AI 自动跟随无需处理）
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> pets.tickFollow(), 10L, 10L);
+    }
+
+    private String backendName() {
+        if (Bukkit.getPluginManager().isPluginEnabled("ItemsAdder")) {
+            return "ItemsAdder";
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
+            return "Citizens";
+        }
+        return "ArmorStand";
     }
 
     // ------------------------------------------------------------ 对话框
@@ -130,6 +156,7 @@ public final class DeepseekPetCore {
     public void handleDialogMessage(Player player, String text) {
         if (!feeding.canTalk(player.getUniqueId())) {
             player.sendMessage(Text.color(feeding.refuseLine()));
+            log.event(player.getName(), "对话被拒绝", "饥饿值为 0");
             return;
         }
         feeding.onDialog(player);
@@ -138,25 +165,39 @@ public final class DeepseekPetCore {
         List<Message> prior = List.copyOf(memory.getHistory(id));
         memory.append(id, "user", text);
         player.sendMessage(Text.color(config.message("thinking", "&7鲸鱼娘正在思考中…")));
+        log.event(player.getName(), "发送对话", truncate(text));
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            ChatResult result = computeReply(text, prior);
-            memory.append(id, "assistant", result.answer());
+        // 主线程构建玩家信息（背包 / PAPI 等必须在主线程访问）
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            String playerContext = context.build(player);
 
-            Bukkit.getScheduler().runTask(plugin, () -> sendWhaleReply(player, result.answer()));
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                ChatResult result = computeReply(text, prior, playerContext);
+                memory.append(id, "assistant", result.answer());
+                log.event(player.getName(), "收到回复", truncate(result.answer()));
+
+                Bukkit.getScheduler().runTask(plugin, () -> sendWhaleReply(player, result.answer()));
+            });
         });
     }
 
     /** 阻塞调用 AI 并兜底错误信息（仅在异步线程调用）。 */
-    private ChatResult computeReply(String text, List<Message> prior) {
+    private ChatResult computeReply(String text, List<Message> prior, String playerContext) {
         try {
-            return chat.ask(text, prior);
+            return chat.ask(text, prior, playerContext);
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "AI 调用失败", e);
+            log.error("AI 调用失败", e);
             String err = config.message("ai-error", "&c鲸鱼娘暂时开小差啦：%error%")
                     .replace("%error%", e.getMessage() == null ? "未知错误" : e.getMessage());
             return new ChatResult(err, false, List.of(), "error");
         }
+    }
+
+    private static String truncate(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() > 120 ? s.substring(0, 120) + "…" : s;
     }
 
     private void sendWhaleReply(Player player, String answer) {
@@ -210,5 +251,13 @@ public final class DeepseekPetCore {
 
     public FeedingManager feeding() {
         return feeding;
+    }
+
+    public PluginLog log() {
+        return log;
+    }
+
+    public PlayerContextBuilder context() {
+        return context;
     }
 }

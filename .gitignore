@@ -36,6 +36,8 @@ Desktop.ini
 # deepseekpet-premium 是付费版专有代码，本仓库为公开仓库，只发布免费版。
 # 本地开发时该目录仍存在；构建付费版请在根目录执行 `mvn package -Ppremium`。
 /deepseekpet-premium/
+# Deepseek-Premium 是付费版独立私有仓库的本地暂存目录（自带 .git），不纳入公开仓库。
+/Deepseek-Premium/
 
 # ===== rag-bridge（本地检索服务）运行时产物 =====
 rag-bridge/.env

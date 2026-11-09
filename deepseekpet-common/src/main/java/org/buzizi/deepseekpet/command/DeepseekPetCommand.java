@@ -18,7 +18,7 @@ import java.util.List;
 public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "show", "hide", "toggle", "end", "hunger", "reload", "info"
+            "show", "hide", "toggle", "follow", "end", "hunger", "reload", "info"
     );
 
     private final DeepseekPetCore core;
@@ -37,6 +37,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
             case "show", "spawn" -> handleShow(sender);
             case "hide", "remove" -> handleHide(sender);
             case "toggle" -> handleToggle(sender);
+            case "follow" -> handleFollow(sender, args);
             case "end", "exit", "quit" -> handleEnd(sender);
             case "hunger" -> handleHunger(sender);
             case "reload" -> handleReload(sender);
@@ -81,6 +82,29 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         } else {
             player.sendMessage(Text.color(core.config().message("pet-hidden", "&b鲸鱼娘已经隐藏啦（输入 /dp show 重新召唤）")));
         }
+    }
+
+    private void handleFollow(CommandSender sender, String[] args) {
+        Player player = requirePlayer(sender);
+        if (player == null) {
+            return;
+        }
+        PetInstance pet = core.pets().byPlayer(player.getUniqueId());
+        if (pet == null) {
+            player.sendMessage(Text.color(core.config().message("no-pet", "&e你还没有鲸鱼娘，输入 /dp show 召唤一只吧")));
+            return;
+        }
+        boolean next;
+        if (args.length >= 2 && args[1].equalsIgnoreCase("on")) {
+            next = true;
+        } else if (args.length >= 2 && args[1].equalsIgnoreCase("off")) {
+            next = false;
+        } else {
+            next = !pet.isFollowEnabled();
+        }
+        pet.setFollow(next);
+        player.sendMessage(Text.color(next ? "&b鲸鱼娘开始跟随你啦～" : "&e鲸鱼娘已停止跟随"));
+        core.log().event(player.getName(), "跟随切换", next ? "开" : "关");
     }
 
     private void handleEnd(CommandSender sender) {
@@ -130,6 +154,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Text.color("&f/dp show &7召唤鲸鱼娘"));
         sender.sendMessage(Text.color("&f/dp hide &7收起鲸鱼娘"));
         sender.sendMessage(Text.color("&f/dp toggle &7显示/隐藏切换"));
+        sender.sendMessage(Text.color("&f/dp follow [on|off] &7切换跟随"));
         sender.sendMessage(Text.color("&f/dp end &7结束与鲸鱼娘的对话"));
         sender.sendMessage(Text.color("&f/dp hunger &7查看鲸鱼娘的饱食度"));
         sender.sendMessage(Text.color("&f/dp info &7查看版本"));

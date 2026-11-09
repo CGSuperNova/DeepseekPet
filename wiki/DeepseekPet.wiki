@@ -113,7 +113,11 @@ py server.py       # 默认 127.0.0.1:8100
 |-
 | <code>/dp toggle</code> || 显示 / 隐藏切换 || deepseekpet.use
 |-
+| <code>/dp follow [on|off]</code> || 切换跟随 || deepseekpet.use
+|-
 | <code>/dp end</code> || 结束与鲸鱼娘的对话 || deepseekpet.use
+|-
+| <code>/dp hunger</code> || 查看饱食度 || deepseekpet.use
 |-
 | <code>/dp info</code> || 查看版本 || deepseekpet.use
 |-
@@ -217,6 +221,33 @@ py server.py       # 默认 127.0.0.1:8100
 * 饱食度归零时拒绝对话；
 * <code>/dp hunger</code> 查看当前饱食度。
 
+== 降级方案 ==
+
+未检测到正常启用的 ItemsAdder 时，鲸鱼娘按以下优先级降级生成：
+
+# '''Citizens（一级）'''：以玩家模型的 NPC 生成，无动画、导航跟随，其余功能一致；
+# '''原版盔甲架（二级）'''：蓝色皮革衣 + 玩家头颅，无动画、无狼 AI，
+  超出 <code>fallback.armorstand.follow-distance</code> 距离便传送到玩家附近（自动避开方块）。
+
+后端选择会自动检测：ItemsAdder → Citizens → 盔甲架。
+
+== 跟随开关 ==
+
+<code>/dp follow [on|off]</code> 切换跟随。关闭后鲸鱼娘不再跟随（含跨世界移动）；
+重新开关（重新生成）时会在玩家身边生成。默认状态由 <code>follow.default-enabled</code> 控制。
+
+== 信息读取 ==
+
+对话时会把「主人当前信息」注入给 DeepSeek（带缓存，默认 3 秒）：
+
+* '''free'''：金币（Vault）、背包 + 末影箱摘要；
+* '''premium'''：PlaceholderAPI Player 扩展、CMI 采纳变量（见 <code>CMI 采纳变量合集.md</code>）、
+  自定义 PAPI 变量（<code>info.custom-placeholders</code>）。
+
+== 日志 ==
+
+运行与玩家操作事件写入 <code>plugins/DeepseekPet/logs/deepseekpet.log</code>。
+
 == Free 与 Premium ==
 
 {| class="wikitable"
@@ -231,6 +262,14 @@ py server.py       # 默认 127.0.0.1:8100
 | 定时/条件随机台词 || ✅ || ✅
 |-
 | 收起 / 释放 || ✅ || ✅
+|-
+| 跟随开关 || ✅ || ✅
+|-
+| ItemsAdder 降级（Citizens / 盔甲架） || ✅ || ✅
+|-
+| 信息读取（金币 / 背包） || ✅ || ✅
+|-
+| 信息读取（PAPI / CMI / 自定义） || ❌ || ✅
 |-
 | 喂食系统（饥饿值 / 喂食） || ✅ || ✅
 |-

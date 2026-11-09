@@ -14,6 +14,14 @@
     <name>DeepseekPet Common</name>
     <description>free / premium 共享的核心实现</description>
 
+    <repositories>
+        <!-- Citizens（仅编译期，运行时由服务端提供） -->
+        <repository>
+            <id>citizens-repo</id>
+            <url>https://maven.citizensnpcs.co/repo</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <!-- Paper 服务端 API（provided，运行时由服务端提供） -->
         <dependency>
@@ -24,6 +32,27 @@
         <dependency>
             <groupId>com.github.LoneDev6</groupId>
             <artifactId>API-ItemsAdder</artifactId>
+        </dependency>
+        <!-- Citizens API（provided，运行时由 Citizens 提供；缺失时的降级后端） -->
+        <dependency>
+            <groupId>net.citizensnpcs</groupId>
+            <artifactId>citizens-main</artifactId>
+            <version>2.0.35-SNAPSHOT</version>
+            <type>jar</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Vault API（provided，运行时由 Vault 提供；金币读取） -->
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>1.7</version>
+            <scope>provided</scope>
         </dependency>
         <!-- JSON 序列化（shade 进最终 jar） -->
         <dependency>

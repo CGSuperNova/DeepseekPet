@@ -48,6 +48,12 @@
 - 🍚 **喂食系统**：鲸鱼娘有 20 点饱食度，会随时间自然减少、每次对话也会消耗；
   手持可食用物品右键（点两下确认防误触）喂食，按原版食物恢复值补充。饥饿值过低会喊饿，
   归零则拒绝交流。配置在 `plugins/DeepseekPet/feeding/`。
+- 🚶 **跟随开关**：`/dp follow [on|off]` 控制鲸鱼娘是否跟随（关闭后含跨世界都不跟随）。
+- 🧩 **ItemsAdder 降级**：未检测到 ItemsAdder 时，依次降级为 Citizens 玩家模型 NPC（一级，
+  无动画、导航跟随）、原版盔甲架（二级，蓝色皮革甲 + 玩家头颅，超出距离传送跟随并避开方块）。
+- 📋 **信息读取**：对话时附带玩家金币（Vault）、背包/末影箱（free）；
+  PlaceholderAPI Player 扩展、CMI 采纳变量、自定义变量（premium）。
+- 📝 **日志系统**：记录到 `plugins/DeepseekPet/logs/deepseekpet.log`。
 
 ### 付费版（Premium）
 
@@ -56,6 +62,7 @@
   - **长期记忆摘要**：历史超过上限时，自动把较早对话概括成长期记忆沉淀到本地，
     让鲸鱼娘记得更久；
   - **喂食表现**：可配置鲸鱼娘吃下每种食物后的台词、自定义命令、进食/进食后动作；
+  - **更丰富信息读取**：PlaceholderAPI Player 扩展 / CMI 采纳变量 / 自定义变量注入对话；
 - 发布构建支持 **ProGuard 混淆**，防止付费版逻辑被轻易反编译。
 
 > 后续新增的付费功能会在更新日志中明确标注「Premium 专有」。
@@ -135,6 +142,15 @@ mvn clean package -Ppremium -Pobfuscate
 > ItemsAdder API 使用 `com.github.LoneDev6:API-ItemsAdder`，若无法访问 JitPack，
 > 可改用本地 jar：`mvn install:install-file -Dfile=ItemsAdder_4.0.15.jar -DgroupId=com.github.LoneDev6 -DartifactId=API-ItemsAdder -Dversion=<ver> -Dpackaging=jar`。
 
+### CI 构建（推荐中国大陆用户）
+
+两个仓库都内置了 GitHub Actions workflow，利用海外 runner 构建，绕开本地网络问题：
+
+- 公开仓库 `DeepseekPet`：`.github/workflows/build-free.yml`，推送 / 打 `v*` tag 时构建免费版；
+- 私有仓库 `Deepseek-Premium`：`.github/workflows/build.yml`，构建付费版（含混淆 best-effort）。
+
+产物在 Actions 页面或 **Releases**（打 `v*` tag 时自动发布）。
+
 ---
 
 ## 部署
@@ -184,6 +200,7 @@ py server.py                # 默认 127.0.0.1:8100
 | `/dp show` | 召唤鲸鱼娘 |
 | `/dp hide` | 收起鲸鱼娘 |
 | `/dp toggle` | 显示 / 隐藏切换 |
+| `/dp follow [on|off]` | 切换跟随 |
 | `/dp end` | 结束与鲸鱼娘的对话 |
 | `/dp hunger` | 查看鲸鱼娘的饱食度 |
 | `/dp info` | 查看版本 |
@@ -193,11 +210,12 @@ py server.py                # 默认 127.0.0.1:8100
 
 ## 配置
 
-- `plugins/DeepseekPet/config.yml` — 主配置（宠物、AI、随机台词、提示文本）；
+- `plugins/DeepseekPet/config.yml` — 主配置（宠物、AI、随机台词、跟随、降级、信息读取、提示文本）；
 - `plugins/DeepseekPet/persona.yml` — 鲸鱼娘角色卡（system prompt 来源）；
 - `plugins/DeepseekPet/ambient.yml` — 定时/条件随机台词规则；
 - `plugins/DeepseekPet/feeding/config.yml` — 喂食系统（饥饿值、自然减少、对话消耗、喊饿/拒绝对话）；
 - `plugins/DeepseekPet/feeding/foods.yml` — 食物恢复值覆盖 +（premium）进食台词/命令/动作；
+- `plugins/DeepseekPet/logs/deepseekpet.log` — 运行日志；
 - `rag-bridge/persona.txt` — rag-bridge 侧的角色卡（与 persona.yml 对应）。
 
 随机台词条件示例（`ambient.yml`）：
@@ -226,7 +244,11 @@ rules:
 | RAG + 云端 AI + 持久记忆 | ✅ | ✅ |
 | 定时/条件随机台词 | ✅ | ✅ |
 | 收起 / 释放 | ✅ | ✅ |
+| 跟随开关 | ✅ | ✅ |
+| ItemsAdder 降级（Citizens / 盔甲架） | ✅ | ✅ |
 | 喂食系统（饥饿值 / 喂食） | ✅ | ✅ |
+| 信息读取（金币 / 背包） | ✅ | ✅ |
+| 信息读取（PAPI / CMI / 自定义） | ❌ | ✅ |
 | 进食台词/命令/动作 | ❌ | ✅ |
 | 长期记忆摘要 | ❌ | ✅ |
 | 代码混淆 | ❌ | ✅ |

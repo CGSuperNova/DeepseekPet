@@ -1,16 +1,12 @@
 package org.buzizi.deepseekpet.core.pet;
 
-import dev.lone.itemsadder.api.CustomEntity;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Display;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Sittable;
-import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.buzizi.deepseekpet.core.config.ConfigManager;
@@ -19,72 +15,60 @@ import org.buzizi.deepseekpet.util.Text;
 /**
  * 一只属于某玩家的鲸鱼娘。
  *
- * <p>实体由 ItemsAdder 自定义实体（type: WOLF）承载，因此移动/跟随
- * 直接复用原版狼的 AI；外观由 ItemsAdder 的模型渲染。</p>
+ * <p>实体后端按可用性选择：ItemsAdder 自定义实体（狼 AI + 动画）→
+ * Citizens 玩家模型 NPC（导航跟随，无动画）→ 原版盔甲架（传送跟随，无动画）。
+ * 悬浮字 / 点击音效 / 喂食 / 对话等通用逻辑都基于 {@link #entity()}，与后端无关。</p>
  */
 public final class PetInstance {
 
     private final JavaPlugin plugin;
     private final ConfigManager config;
     private final Player owner;
-    private CustomEntity customEntity;
-    private LivingEntity entity;
+    private final PetBody body;
     private TextDisplay floatingText;
+    private boolean follow;
 
-    private PetInstance(JavaPlugin plugin, ConfigManager config, Player owner, CustomEntity customEntity, LivingEntity entity) {
+    private PetInstance(JavaPlugin plugin, ConfigManager config, Player owner, PetBody body) {
         this.plugin = plugin;
         this.config = config;
         this.owner = owner;
-        this.customEntity = customEntity;
-        this.entity = entity;
+        this.body = body;
+        this.follow = config.followDefaultEnabled();
+        body.setFollow(this.follow);
     }
 
     /** 在玩家身边生成鲸鱼娘。失败返回 {@code null}。 */
     public static PetInstance spawn(JavaPlugin plugin, ConfigManager config, Player owner) {
-        CustomEntity ce = CustomEntity.spawn(config.entityId(), owner.getLocation());
-        if (ce == null) {
-            plugin.getLogger().warning("无法生成鲸鱼娘实体 " + config.entityId()
-                    + "，请确认 ItemsAdder 已加载该实体（contents/whalechan）");
+        PetBody body = chooseBody(plugin, config, owner);
+        if (!body.spawn()) {
             return null;
         }
-        Entity bukkitEntity = ce.getEntity();
-        if (!(bukkitEntity instanceof LivingEntity living)) {
-            bukkitEntity.remove();
-            return null;
-        }
-
-        // 复用原版狼 AI：驯服并绑定主人，狼会跟随 / 传送
-        if (living instanceof Tameable tameable) {
-            tameable.setTamed(true);
-            tameable.setOwner(owner);
-        }
-        if (living instanceof Sittable sittable) {
-            sittable.setSitting(false);
-        }
-
-        living.setPersistent(true);
-        living.setRemoveWhenFarAway(false);
-        living.setSilent(true);
-        living.setInvulnerable(true);
-
-        PetInstance pet = new PetInstance(plugin, config, owner, ce, living);
+        PetInstance pet = new PetInstance(plugin, config, owner, body);
         pet.applyName();
         return pet;
     }
 
+    private static PetBody chooseBody(JavaPlugin plugin, ConfigManager config, Player owner) {
+        var pm = Bukkit.getPluginManager();
+        if (pm.isPluginEnabled("ItemsAdder")) {
+            return new ItemsAdderBody(plugin, config, owner);
+        }
+        if (pm.isPluginEnabled("Citizens")) {
+            return new CitizensBody(plugin, config, owner);
+        }
+        return new ArmorStandBody(plugin, config, owner);
+    }
+
     /** 刷新头顶悬浮字（玩家 XXX 的鲸鱼娘）。 */
     public void applyName() {
-        if (entity == null) {
-            return;
-        }
         String name = config.nameFormat().replace("%player%", owner.getName());
-        entity.customName(Component.text(name));
-        entity.setCustomNameVisible(config.showNameTag());
+        body.setCustomName(name);
     }
 
     /** 在头顶显示一条临时的悬浮字（用于随机台词等），若干秒后消失。 */
     public void showFloatingText(String line, int seconds) {
         removeFloatingText();
+        LivingEntity entity = body.entity();
         if (entity == null || !entity.isValid()) {
             return;
         }
@@ -108,6 +92,7 @@ public final class PetInstance {
 
     /** 给主人播放客户端 UI 点击音效。 */
     public void playClickSound() {
+        LivingEntity entity = body.entity();
         if (entity == null || !entity.isValid()) {
             return;
         }
@@ -117,56 +102,51 @@ public final class PetInstance {
         }
     }
 
-    /**
-     * 播放 ItemsAdder 模型动画（如进食、拍肚子）。
-     * 模型里没有该动画时会安全跳过。
-     *
-     * @param animation 动画名（与模型中定义的动画一致）
-     * @param onFinish  播放结束后的回调，可为 null
-     * @return 是否成功发起播放
-     */
+    /** 播放模型动画（仅 ItemsAdder 后端支持）。 */
     public boolean playAnimation(String animation, Runnable onFinish) {
-        if (customEntity == null || entity == null || !entity.isValid()) {
-            return false;
-        }
-        if (animation == null || animation.isBlank()) {
-            return false;
-        }
-        Runnable callback = onFinish == null ? () -> {
-        } : onFinish;
-        try {
-            return customEntity.playAnimation(animation, callback);
-        } catch (Throwable ignored) {
-            return false;
-        }
+        return body.playAnimation(animation, onFinish);
     }
 
     public boolean playAnimation(String animation) {
-        return playAnimation(animation, null);
+        return body.playAnimation(animation, null);
     }
 
+    // ------------------------------------------------------------ 跟随
+    public boolean isFollowEnabled() {
+        return follow;
+    }
+
+    public void setFollow(boolean follow) {
+        this.follow = follow;
+        body.setFollow(follow);
+    }
+
+    /** 每个跟随周期调用（主线程）。 */
+    public void followTick() {
+        if (follow) {
+            body.followTick(owner);
+        }
+    }
+
+    // ------------------------------------------------------------ 状态
     public boolean isValid() {
-        return entity != null && entity.isValid() && customEntity != null;
+        return body != null && body.isValid();
     }
 
     public LivingEntity entity() {
-        return entity;
-    }
-
-    public CustomEntity customEntity() {
-        return customEntity;
+        return body.entity();
     }
 
     public Player owner() {
         return owner;
     }
 
+    public PetBody body() {
+        return body;
+    }
+
     public void despawn() {
         removeFloatingText();
-        if (entity != null && entity.isValid()) {
-            entity.remove();
-        }
-        customEntity = null;
-        entity = null;
+        body.despawn();
     }
 }

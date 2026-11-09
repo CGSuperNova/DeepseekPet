@@ -92,6 +92,15 @@ public final class PetManager {
         }
     }
 
+    /** 每个跟随周期调用：让每只鲸鱼娘执行跟随逻辑（主线程）。 */
+    public void tickFollow() {
+        for (PetInstance pet : pets.values()) {
+            if (pet.isValid()) {
+                pet.followTick();
+            }
+        }
+    }
+
     private void unregister(PetInstance pet) {
         if (pet.entity() != null) {
             byEntity.remove(pet.entity().getUniqueId());

@@ -40,6 +40,31 @@ ambient:
   # 条件检查间隔（秒）
   check-interval-seconds: 30
 
+follow:
+  # 玩家生成鲸鱼娘时默认是否跟随
+  default-enabled: true
+
+fallback:
+  # 当 ItemsAdder 未启用时的降级：
+  #   1 级优先 Citizens（玩家模型 NPC），2 级最终为原版盔甲架
+  armorstand:
+    # 超出该距离（格）则传送跟随
+    follow-distance: 10
+    # 传送后与玩家的水平距离（格），并在附近找安全点避免卡墙
+    tp-distance: 2
+
+info:
+  # 是否在对话时附带「主人当前信息」给 DeepSeek
+  enabled: true
+  # 金币（需 Vault）
+  vault: true
+  # 背包 + 末影箱
+  inventory: true
+  # 信息缓存时长（秒）：玩家连发时避免反复解析背包 / PAPI
+  cache-seconds: 3
+  # （premium 专有）自定义 PAPI 变量，逗号分隔，例如 %player_health%,%player_level%
+  custom-placeholders: ""
+
 messages:
   # 各种提示文本（可自行汉化）
   pet-spawned: "&b你的鲸鱼娘已经来到你身边啦～"
