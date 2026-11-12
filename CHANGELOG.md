@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Communication / Cognition / Context / Platform），并新增 `BoardExtension` + `BoardRegistry`
   扩展点，Premium 通过 `PremiumFeatureRegistry` 注册实现，Free / Premium 共用同一套骨架。
 
+### Fixed
+
+- 盔甲架右键无反应：补上 `PlayerInteractAtEntityEvent` 监听（盔甲架走 INTERACT_AT 而非 INTERACT），
+  现在右键可正常打开 GUI / 喂食。
+- `/dp gui` 改用 Paper 1.21.6+ 的 Menu Type API（`MenuType.GENERIC_9X1`）创建原生菜单视图，
+  不再使用旧式 `Bukkit.createInventory`。
+
 ## [1.0.0] - 2026-10-31
 
 ### Added

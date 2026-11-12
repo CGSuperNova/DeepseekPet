@@ -4,6 +4,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -16,6 +17,9 @@ import org.buzizi.deepseekpet.avatar.PetInstance;
  *   <li>手持可食用物品 → 喂食（双击确认，防误触）；</li>
  *   <li>否则 → 打开交互 GUI。</li>
  * </ul>
+ *
+ * <p>注意：盔甲架等实体右键触发的是 {@link PlayerInteractAtEntityEvent}（INTERACT_AT），
+ * 而不是 {@link PlayerInteractEntityEvent}（INTERACT），所以两个事件都要监听。</p>
  */
 public final class PetInteractListener implements Listener {
 
@@ -27,6 +31,15 @@ public final class PetInteractListener implements Listener {
 
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent event) {
+        handleInteract(event);
+    }
+
+    @EventHandler
+    public void onInteractAtEntity(PlayerInteractAtEntityEvent event) {
+        handleInteract(event);
+    }
+
+    private void handleInteract(PlayerInteractEntityEvent event) {
         // Citizens NPC 由 CitizensInteractListener 处理，避免重复
         if (event.getRightClicked().hasMetadata("NPC")) {
             return;
@@ -56,7 +69,7 @@ public final class PetInteractListener implements Listener {
 
     /**
      * 禁止任何人替换 / 取下盔甲架鲸鱼娘的装备
-     * （右手右键只走上面的 GUI / 喂食逻辑）。
+     * （右键只走上面的 GUI / 喂食逻辑）。
      */
     @EventHandler
     public void onArmorStandManipulate(PlayerArmorStandManipulateEvent event) {

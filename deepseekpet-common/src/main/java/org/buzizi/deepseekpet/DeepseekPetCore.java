@@ -51,6 +51,7 @@ public final class DeepseekPetCore {
     private FeedingManager feeding;
     private PlayerContextBuilder context;
     private BoardRegistry boards;
+    private InteractionGui interactionGui;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -72,6 +73,7 @@ public final class DeepseekPetCore {
         this.ambient = new AmbientLineManager(plugin, config, this);
         this.context = new PlayerContextBuilder(config);
         this.boards = new BoardRegistry();
+        this.interactionGui = new InteractionGui(plugin, this::startDialog);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
@@ -156,8 +158,11 @@ public final class DeepseekPetCore {
     }
 
     public void openInteractionGui(Player player) {
-        InteractionGui gui = new InteractionGui(plugin, p -> startDialog(p));
-        gui.open(player);
+        interactionGui.open(player);
+    }
+
+    public InteractionGui interactionGui() {
+        return interactionGui;
     }
 
     /** 处理一条来自玩家的对话消息（线程安全：内部会异步调用 AI）。 */

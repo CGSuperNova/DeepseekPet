@@ -2,42 +2,65 @@ package org.buzizi.deepseekpet.interaction.gui;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MenuType;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * 鲸鱼娘交互 GUI（基于 1.21+ 的 Inventory 自定义界面）。
- * 当前只有一个按钮：「与鲸鱼娘对话」。
+ * 鲸鱼娘交互 GUI。
+ *
+ * <p>使用 Paper 1.21.6+ 的 <b>Menu Type API</b>（{@link MenuType}）创建原生菜单视图，
+ * 而不是旧的 {@code Bukkit.createInventory(holder, ...)}。每个玩家对应一个
+ * {@link InventoryView}，由 {@link GuiListener} 通过 {@link #isView(Player, InventoryView)} 识别。</p>
  */
-public final class InteractionGui implements InventoryHolder {
+public final class InteractionGui {
 
     public static final String BUTTON_TALK = "talk";
     private static final String KEY = "deepseekpet.button";
 
     private final JavaPlugin plugin;
-    private final Inventory inventory;
     private final Consumer<Player> onTalk;
+    /** 玩家 -> 当前打开的视图，用于点击识别与关闭清理。 */
+    private final Map<UUID, InventoryView> views = new ConcurrentHashMap<>();
 
     public InteractionGui(JavaPlugin plugin, Consumer<Player> onTalk) {
         this.plugin = plugin;
         this.onTalk = onTalk;
-        this.inventory = Bukkit.createInventory(this, 9, Component.text("鲸鱼娘 · 互动", NamedTextColor.AQUA));
-        this.inventory.setItem(4, talkButton());
     }
 
+    /** 打开交互 GUI。 */
     public void open(Player player) {
-        player.openInventory(inventory);
+        InventoryView view = MenuType.GENERIC_9X1.builder()
+                .title(Component.text("鲸鱼娘 · 互动", NamedTextColor.AQUA))
+                .build(player);
+        Inventory top = view.getTopInventory();
+        top.setItem(4, talkButton());
+        views.put(player.getUniqueId(), view);
+        view.open();
+    }
+
+    /** 判断某次点击是否发生在该玩家的鲸鱼娘 GUI 上。 */
+    public boolean isView(Player player, InventoryView view) {
+        InventoryView stored = views.get(player.getUniqueId());
+        return stored != null && stored.equals(view);
+    }
+
+    /** 玩家关闭界面时清理记录。 */
+    public void close(Player player) {
+        views.remove(player.getUniqueId());
     }
 
     public Consumer<Player> onTalk() {
@@ -62,10 +85,5 @@ public final class InteractionGui implements InventoryHolder {
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, BUTTON_TALK);
         item.setItemMeta(meta);
         return item;
-    }
-
-    @Override
-    public Inventory getInventory() {
-        return inventory;
     }
 }
