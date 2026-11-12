@@ -52,6 +52,9 @@ fallback:
     follow-distance: 10
     # 传送后与玩家的水平距离（格），并在附近找安全点避免卡墙
     tp-distance: 2
+    # 头颅皮肤 base64（玩家头颅的 textures 属性值，留空则用默认 Steve 头颅）
+    # 示例：eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmRjZDJiMjBiMWFhYzkwODBhOTBlZDEyNjliN2Q0ZTY3ODZkMzdmNjNiYmE5ZDNhNmMyN2RiYjY3ZTFkYzExNCJ9fX0=
+    head-texture: ""
 
 info:
   # 是否在对话时附带「主人当前信息」给 DeepSeek
@@ -64,6 +67,17 @@ info:
   cache-seconds: 3
   # （premium 专有）自定义 PAPI 变量，逗号分隔，例如 %player_health%,%player_level%
   custom-placeholders: ""
+
+attack:
+  # 鲸鱼娘可被攻击，但不会掉血 / 死亡（无敌）
+  enabled: true
+  # 被玩家攻击时的反馈台词（随机抽一句，以悬浮字显示）
+  lines:
+    - "呜呜…为什么要打我"
+    - "好痛！本鲸要生气了"
+    - "别打啦，我很乖的"
+  # 反馈冷却（秒），避免连击刷屏
+  cooldown-seconds: 3
 
 messages:
   # 各种提示文本（可自行汉化）

@@ -3,7 +3,7 @@ package org.buzizi.deepseekpet.context;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.buzizi.deepseekpet.core.config.ConfigManager;
+import org.buzizi.deepseekpet.platform.config.ConfigManager;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

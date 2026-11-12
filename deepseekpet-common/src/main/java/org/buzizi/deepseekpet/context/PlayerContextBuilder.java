@@ -1,7 +1,7 @@
 package org.buzizi.deepseekpet.context;
 
 import org.bukkit.entity.Player;
-import org.buzizi.deepseekpet.core.config.ConfigManager;
+import org.buzizi.deepseekpet.platform.config.ConfigManager;
 
 import java.util.List;
 import java.util.Map;

@@ -4,7 +4,7 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
-import org.buzizi.deepseekpet.core.config.ConfigManager;
+import org.buzizi.deepseekpet.platform.config.ConfigManager;
 
 /**
  * 金币（Vault 经济）。free 可用。

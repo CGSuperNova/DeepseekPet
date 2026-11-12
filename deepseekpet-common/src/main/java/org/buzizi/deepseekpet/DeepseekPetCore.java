@@ -5,26 +5,28 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.buzizi.deepseekpet.ai.ChatResult;
-import org.buzizi.deepseekpet.ai.ChatService;
-import org.buzizi.deepseekpet.ai.MemoryStore;
-import org.buzizi.deepseekpet.ai.Message;
-import org.buzizi.deepseekpet.ai.Persona;
-import org.buzizi.deepseekpet.ambient.AmbientLineManager;
-import org.buzizi.deepseekpet.command.DeepseekPetCommand;
+import org.buzizi.deepseekpet.cognition.ChatResult;
+import org.buzizi.deepseekpet.cognition.ChatService;
+import org.buzizi.deepseekpet.cognition.MemoryStore;
+import org.buzizi.deepseekpet.cognition.Message;
+import org.buzizi.deepseekpet.communication.persona.Persona;
+import org.buzizi.deepseekpet.communication.ambient.AmbientLineManager;
+import org.buzizi.deepseekpet.platform.command.DeepseekPetCommand;
+import org.buzizi.deepseekpet.platform.extension.BoardRegistry;
 import org.buzizi.deepseekpet.context.PlayerContextBuilder;
-import org.buzizi.deepseekpet.core.config.ConfigManager;
-import org.buzizi.deepseekpet.core.pet.PetInstance;
-import org.buzizi.deepseekpet.core.pet.PetManager;
-import org.buzizi.deepseekpet.feeding.FeedingManager;
-import org.buzizi.deepseekpet.gui.InteractionGui;
-import org.buzizi.deepseekpet.listener.ChatInputListener;
-import org.buzizi.deepseekpet.listener.CitizensInteractListener;
-import org.buzizi.deepseekpet.listener.GuiListener;
-import org.buzizi.deepseekpet.listener.JoinQuitListener;
-import org.buzizi.deepseekpet.listener.PetInteractListener;
-import org.buzizi.deepseekpet.util.PluginLog;
-import org.buzizi.deepseekpet.util.Text;
+import org.buzizi.deepseekpet.platform.config.ConfigManager;
+import org.buzizi.deepseekpet.avatar.PetInstance;
+import org.buzizi.deepseekpet.avatar.PetManager;
+import org.buzizi.deepseekpet.interaction.feeding.FeedingManager;
+import org.buzizi.deepseekpet.interaction.gui.InteractionGui;
+import org.buzizi.deepseekpet.communication.listener.ChatInputListener;
+import org.buzizi.deepseekpet.interaction.listener.CitizensInteractListener;
+import org.buzizi.deepseekpet.interaction.gui.GuiListener;
+import org.buzizi.deepseekpet.avatar.listener.JoinQuitListener;
+import org.buzizi.deepseekpet.interaction.listener.PetInteractListener;
+import org.buzizi.deepseekpet.interaction.listener.PetDamageListener;
+import org.buzizi.deepseekpet.platform.util.PluginLog;
+import org.buzizi.deepseekpet.platform.util.Text;
 
 import java.util.List;
 import java.util.Set;
@@ -48,6 +50,7 @@ public final class DeepseekPetCore {
     private AmbientLineManager ambient;
     private FeedingManager feeding;
     private PlayerContextBuilder context;
+    private BoardRegistry boards;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -68,9 +71,11 @@ public final class DeepseekPetCore {
         this.feeding = new FeedingManager(plugin, config, this);
         this.ambient = new AmbientLineManager(plugin, config, this);
         this.context = new PlayerContextBuilder(config);
+        this.boards = new BoardRegistry();
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
+        plugin.getServer().getPluginManager().registerEvents(new PetDamageListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new GuiListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new ChatInputListener(this), plugin);
         if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
@@ -88,6 +93,9 @@ public final class DeepseekPetCore {
     }
 
     public void disable() {
+        if (boards != null) {
+            boards.disableAll(this);
+        }
         ambient.shutdown();
         if (feeding != null) {
             feeding.disable();
@@ -259,5 +267,9 @@ public final class DeepseekPetCore {
 
     public PlayerContextBuilder context() {
         return context;
+    }
+
+    public BoardRegistry boards() {
+        return boards;
     }
 }

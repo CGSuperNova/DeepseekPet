@@ -50,10 +50,12 @@
   归零则拒绝交流。配置在 `plugins/DeepseekPet/feeding/`。
 - 🚶 **跟随开关**：`/dp follow [on|off]` 控制鲸鱼娘是否跟随（关闭后含跨世界都不跟随）。
 - 🧩 **ItemsAdder 降级**：未检测到 ItemsAdder 时，依次降级为 Citizens 玩家模型 NPC（一级，
-  无动画、导航跟随）、原版盔甲架（二级，蓝色皮革甲 + 玩家头颅，超出距离传送跟随并避开方块）。
+  无动画、导航跟随）、原版**小型盔甲架**（二级，蓝色皮革甲 + 可配置 base64 头颅，超出距离传送跟随并避开方块）；
+  盔甲架的装备被保护，右键只打开 GUI / 喂食。
 - 📋 **信息读取**：对话时附带玩家金币（Vault）、背包/末影箱（free）；
   PlaceholderAPI Player 扩展、CMI 采纳变量、自定义变量（premium）。
 - 📝 **日志系统**：记录到 `plugins/DeepseekPet/logs/deepseekpet.log`。
+- ⚔️ **可攻击**：鲸鱼娘可以被攻击但不会掉血 / 死亡（无敌），被玩家攻击时会说出配置的反馈台词。
 
 ### 付费版（Premium）
 
@@ -75,13 +77,16 @@
 ┌────────────────────────────────────────────────────────────────┐
 │  DeepseekPet 插件 (Paper 1.21.11, Java 21)                     │
 │                                                                │
-│  ┌─────────────┐  ┌─────────────┐  ┌────────────────────────┐  │
-│  │ 宠物实体层   │  │ 交互层       │  │ AI 层                   │  │
-│  │ PetManager   │  │ GUI / 对话框 │  │ ChatService             │  │
-│  │ ItemsAdder   │  │ 指令 / 监听  │  │  ├ RagClient (HTTP)     │  │
-│  │ 狼 AI + 模型 │  │ 悬浮字/音效  │  │  ├ LlmClient (HTTP)     │  │
-│  └─────────────┘  └─────────────┘  │  └ MemoryStore(持久记忆) │  │
-│                                     └────────────────────────┘  │
+│  Avatar（化身）      Status（状态）    Interaction（交互）      │
+│  PetManager          HungerStore       FeedingManager          │
+│  PetBody×3                             GUI / 右键 / 攻击        │
+│  ItemsAdder/Citizens/盔甲架                                     │
+│                                                                │
+│  Communication（沟通）  Cognition（认知）  Context（上下文）    │
+│  Ambient / Persona      ChatService       Vault / 背包          │
+│  ChatInput              RAG / LLM         PAPI / CMI / 自定义   │
+│                                                                │
+│  Platform（平台）：Config / Log / Command / BoardRegistry（扩展点）│
 └────────────────────────────────────────────────────────────────┘
                     │ HTTP  (127.0.0.1:8100)
                     ▼
@@ -201,6 +206,7 @@ py server.py                # 默认 127.0.0.1:8100
 | `/dp hide` | 收起鲸鱼娘 |
 | `/dp toggle` | 显示 / 隐藏切换 |
 | `/dp follow [on|off]` | 切换跟随 |
+| `/dp gui` | 打开鲸鱼娘主界面（无需点击实体） |
 | `/dp end` | 结束与鲸鱼娘的对话 |
 | `/dp hunger` | 查看鲸鱼娘的饱食度 |
 | `/dp info` | 查看版本 |

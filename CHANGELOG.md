@@ -28,6 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - premium：PlaceholderAPI Player 扩展、CMI 采纳变量（依据 `CMI 采纳变量合集.md`）、自定义 PAPI 变量；
   - 带缓存（默认 3 秒），注意性能。
 - 新增日志系统：`plugins/DeepseekPet/logs/deepseekpet.log` 记录运行时与玩家操作事件。
+- 新增 `/dp gui` 命令：直接打开鲸鱼娘主界面，无需点击实体（free / premium 均可用）。
+
+### Changed / Fixed
+
+- 盔甲架降级改进：改为**小型盔甲架**（约一格高）；头颅支持 base64 自定义皮肤
+  （`fallback.armorstand.head-texture`）；装备受保护，右键只打开 GUI / 喂食，无法替换模型装备。
+
+### Added（可攻击 / 系统化）
+
+- **可攻击（free / premium）**：鲸鱼娘可被攻击，但伤害被取消（无敌、永不死亡）；
+  被玩家攻击时随机说出 `attack.lines` 中的反馈台词，冷却见 `attack.cooldown-seconds`。
+- **系统化（free / premium）**：代码按 7 大板块组织（Avatar / Status / Interaction /
+  Communication / Cognition / Context / Platform），并新增 `BoardExtension` + `BoardRegistry`
+  扩展点，Premium 通过 `PremiumFeatureRegistry` 注册实现，Free / Premium 共用同一套骨架。
 
 ## [1.0.0] - 2026-10-31
 

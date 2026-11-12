@@ -115,6 +115,8 @@ py server.py       # 默认 127.0.0.1:8100
 |-
 | <code>/dp follow [on|off]</code> || 切换跟随 || deepseekpet.use
 |-
+| <code>/dp gui</code> || 打开鲸鱼娘主界面（无需点击实体） || deepseekpet.use
+|-
 | <code>/dp end</code> || 结束与鲸鱼娘的对话 || deepseekpet.use
 |-
 | <code>/dp hunger</code> || 查看饱食度 || deepseekpet.use
@@ -221,13 +223,47 @@ py server.py       # 默认 127.0.0.1:8100
 * 饱食度归零时拒绝对话；
 * <code>/dp hunger</code> 查看当前饱食度。
 
+== 板块架构 ==
+
+插件按 7 大板块组织（Free / Premium 共用同一套骨架）：
+
+{| class="wikitable"
+! 板块 !! 职责 !! 核心对象
+|-
+| Avatar（化身） || 实体生命周期、外观渲染、头顶文本、跟随 || PetManager / PetBody
+|-
+| Status（状态） || 饱食度等内部数值与自我表现 || HungerStore
+|-
+| Interaction（交互） || 玩家对鲸鱼娘的主动操作 || FeedingManager / GUI / 右键 / 攻击
+|-
+| Communication（沟通） || 鲸鱼娘的一切语言输出 || Ambient / Persona / 对话框
+|-
+| Cognition（认知） || 检索、生成、记忆 || ChatService / RAG / LLM / MemoryStore
+|-
+| Context（上下文） || 给 AI 看的玩家 / 世界快照 || Vault / 背包 / PAPI / CMI
+|-
+| Platform（平台） || 横切基础设施 || Config / Log / Command / BoardRegistry
+|}
+
+每个板块预留扩展点（<code>BoardExtension</code> + <code>BoardRegistry</code>），Premium 通过
+<code>PremiumFeatureRegistry</code> 注册实现。
+
+== 可攻击 ==
+
+鲸鱼娘可被攻击，但伤害会被取消（无敌、永不死亡）；被玩家攻击时随机说出一句配置台词
+（<code>attack.lines</code>），冷却由 <code>attack.cooldown-seconds</code> 控制。
+
 == 降级方案 ==
 
 未检测到正常启用的 ItemsAdder 时，鲸鱼娘按以下优先级降级生成：
 
 # '''Citizens（一级）'''：以玩家模型的 NPC 生成，无动画、导航跟随，其余功能一致；
-# '''原版盔甲架（二级）'''：蓝色皮革衣 + 玩家头颅，无动画、无狼 AI，
+# '''原版小型盔甲架（二级）'''：约一格高，蓝色皮革衣 + 可配置 base64 头颅，无动画、无狼 AI，
   超出 <code>fallback.armorstand.follow-distance</code> 距离便传送到玩家附近（自动避开方块）。
+
+盔甲架的装备受保护：任何人右键都只会打开 GUI / 喂食，无法替换或取下模型装备。
+头颅样式通过 <code>fallback.armorstand.head-texture</code> 填写 base64（玩家头颅 textures 属性值），
+留空则使用默认头颅。
 
 后端选择会自动检测：ItemsAdder → Citizens → 盔甲架。
 
