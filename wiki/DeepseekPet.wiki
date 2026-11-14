@@ -115,7 +115,11 @@ py server.py       # 默认 127.0.0.1:8100
 |-
 | <code>/dp follow [on|off]</code> || 切换跟随 || deepseekpet.use
 |-
-| <code>/dp gui</code> || 打开鲸鱼娘主界面（无需点击实体） || deepseekpet.use
+| <code>/dp gui</code> || 打开鲸鱼娘主界面（Dialog API） || deepseekpet.use
+|-
+| <code>/dp tp pettoplayer</code> || 把鲸鱼娘传送到你身边 || deepseekpet.use
+|-
+| <code>/dp tp playertopet</code> || 把自己传送到鲸鱼娘身边 || deepseekpet.use
 |-
 | <code>/dp end</code> || 结束与鲸鱼娘的对话 || deepseekpet.use
 |-
@@ -222,6 +226,21 @@ py server.py       # 默认 127.0.0.1:8100
 * 饱食度低于 <code>hungry-threshold</code>（默认 6）时自主喊饿；
 * 饱食度归零时拒绝对话；
 * <code>/dp hunger</code> 查看当前饱食度。
+
+== Dialog GUI ==
+
+<code>/dp gui</code> 或右键鲸鱼娘打开基于 Paper 1.21.7+ Dialog API 的原生界面：
+
+* '''主界面'''：状态展示（饱食度等）、显示开关（布尔输入）、「与鲸鱼娘对话」「与鲸鱼娘互动」按钮；
+* '''对话界面'''：最近对话列表、文本输入框、「发送」「退出对话」按钮；发送后等待回复并自动刷新页面；
+* '''互动界面'''：喂食教程、「将鲸鱼娘传送至身边」「将自己传送至鲸鱼娘」按钮。
+
+Dialog 支持文本 / 布尔 / 单选 / 数值滑块等输入控件，以及 MULTI_ACTION / CONFIRMATION / NOTICE 布局。
+
+== 状态感知与台词 ==
+
+* 鲸鱼娘会读取自己的 Status（饱食度等）作为对话上下文；
+* 头顶悬浮字会随鲸鱼娘一起传送，并同步输出到聊天栏。
 
 == 板块架构 ==
 

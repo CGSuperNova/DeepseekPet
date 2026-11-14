@@ -47,8 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 盔甲架右键无反应：补上 `PlayerInteractAtEntityEvent` 监听（盔甲架走 INTERACT_AT 而非 INTERACT），
   现在右键可正常打开 GUI / 喂食。
-- `/dp gui` 改用 Paper 1.21.6+ 的 Menu Type API（`MenuType.GENERIC_9X1`）创建原生菜单视图，
-  不再使用旧式 `Bukkit.createInventory`。
+
+### Changed（Dialog GUI / 传送 / 状态 / 台词）
+
+- GUI 改为基于 Paper 1.21.7+ **Dialog API** 的原生界面（主界面 / 对话 / 互动三个页面），
+  支持文本输入、布尔开关、动作按钮、物品展示与自适应布局；不再使用旧式箱子菜单。
+- 新增 `/dp tp pettoplayer`、`/dp tp playertopet` 传送命令，并在互动页面提供对应按钮。
+- Cognition 读取 Status：鲸鱼娘能感知自己的饱食度等状态并作为对话上下文。
+- 头顶悬浮字随鲸鱼娘一起传送（跟随 / 传送时同步位置），并同步输出到聊天栏。
 
 ## [1.0.0] - 2026-10-31
 

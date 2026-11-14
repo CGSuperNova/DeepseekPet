@@ -18,13 +18,13 @@ import org.buzizi.deepseekpet.platform.config.ConfigManager;
 import org.buzizi.deepseekpet.avatar.PetInstance;
 import org.buzizi.deepseekpet.avatar.PetManager;
 import org.buzizi.deepseekpet.interaction.feeding.FeedingManager;
-import org.buzizi.deepseekpet.interaction.gui.InteractionGui;
+import org.buzizi.deepseekpet.interaction.gui.DialogGui;
 import org.buzizi.deepseekpet.communication.listener.ChatInputListener;
 import org.buzizi.deepseekpet.interaction.listener.CitizensInteractListener;
-import org.buzizi.deepseekpet.interaction.gui.GuiListener;
 import org.buzizi.deepseekpet.avatar.listener.JoinQuitListener;
 import org.buzizi.deepseekpet.interaction.listener.PetInteractListener;
 import org.buzizi.deepseekpet.interaction.listener.PetDamageListener;
+import org.buzizi.deepseekpet.status.StatusContextProvider;
 import org.buzizi.deepseekpet.platform.util.PluginLog;
 import org.buzizi.deepseekpet.platform.util.Text;
 
@@ -51,7 +51,7 @@ public final class DeepseekPetCore {
     private FeedingManager feeding;
     private PlayerContextBuilder context;
     private BoardRegistry boards;
-    private InteractionGui interactionGui;
+    private DialogGui dialogGui;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -72,13 +72,13 @@ public final class DeepseekPetCore {
         this.feeding = new FeedingManager(plugin, config, this);
         this.ambient = new AmbientLineManager(plugin, config, this);
         this.context = new PlayerContextBuilder(config);
+        this.context.register(new StatusContextProvider(this));
         this.boards = new BoardRegistry();
-        this.interactionGui = new InteractionGui(plugin, this::startDialog);
+        this.dialogGui = new DialogGui(this);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetDamageListener(this), plugin);
-        plugin.getServer().getPluginManager().registerEvents(new GuiListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new ChatInputListener(this), plugin);
         if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
             plugin.getServer().getPluginManager().registerEvents(new CitizensInteractListener(this), plugin);
@@ -158,11 +158,49 @@ public final class DeepseekPetCore {
     }
 
     public void openInteractionGui(Player player) {
-        interactionGui.open(player);
+        dialogGui.openMain(player);
     }
 
-    public InteractionGui interactionGui() {
-        return interactionGui;
+    public DialogGui dialogGui() {
+        return dialogGui;
+    }
+
+    /** GUI 对话：发送一条消息，并在收到回复后自动刷新对话页面。 */
+    public void sendGuiDialogMessage(Player player, String text) {
+        dialogGui.markGuiDialog(player);
+        handleDialogMessage(player, text);
+    }
+
+    /** GUI 对话：退出对话。 */
+    public void exitGuiDialog(Player player) {
+        dialogGui.exitGuiDialog(player);
+        dialogSessions.remove(player.getUniqueId());
+        player.sendMessage(Text.color(config.message("dialog-end", "&b和鲸鱼娘的对话结束啦～")));
+    }
+
+    /** 把鲸鱼娘传送到玩家身边。 */
+    public void teleportPetToPlayer(Player player) {
+        PetInstance pet = pets.byPlayer(player.getUniqueId());
+        if (pet == null || !pet.isValid() || pet.entity() == null) {
+            player.sendMessage(Text.color(config.message("no-pet", "&e你还没有鲸鱼娘，输入 /dp show 召唤一只吧")));
+            return;
+        }
+        pet.entity().teleport(player.getLocation());
+        pet.syncFloatingText();
+        player.sendMessage(Text.color("&b鲸鱼娘已来到你身边～"));
+        log.event(player.getName(), "传送", "鲸鱼娘→玩家");
+    }
+
+    /** 把玩家传送到鲸鱼娘身边。 */
+    public void teleportPlayerToPet(Player player) {
+        PetInstance pet = pets.byPlayer(player.getUniqueId());
+        if (pet == null || !pet.isValid() || pet.entity() == null) {
+            player.sendMessage(Text.color(config.message("no-pet", "&e你还没有鲸鱼娘，输入 /dp show 召唤一只吧")));
+            return;
+        }
+        player.teleport(pet.entity().getLocation());
+        player.sendMessage(Text.color("&b已传送到鲸鱼娘身边～"));
+        log.event(player.getName(), "传送", "玩家→鲸鱼娘");
     }
 
     /** 处理一条来自玩家的对话消息（线程安全：内部会异步调用 AI）。 */
@@ -226,6 +264,9 @@ public final class DeepseekPetCore {
         PetInstance pet = pets.byPlayer(player.getUniqueId());
         if (pet != null && pet.isValid()) {
             pet.playClickSound();
+        }
+        if (dialogGui != null && dialogGui.isGuiDialog(player)) {
+            dialogGui.openDialogPage(player);
         }
     }
 

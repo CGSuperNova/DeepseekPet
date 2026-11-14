@@ -56,6 +56,10 @@
   PlaceholderAPI Player 扩展、CMI 采纳变量、自定义变量（premium）。
 - 📝 **日志系统**：记录到 `plugins/DeepseekPet/logs/deepseekpet.log`。
 - ⚔️ **可攻击**：鲸鱼娘可以被攻击但不会掉血 / 死亡（无敌），被玩家攻击时会说出配置的反馈台词。
+- 🪟 **Dialog GUI**：基于 Paper 1.21.7+ Dialog API 的原生界面（主界面 / 对话 / 互动三个页面），
+  支持文本输入、布尔开关、动作按钮、物品展示与自适应布局。
+- 🧠 **状态感知**：鲸鱼娘能读取自己的 Status（饱食度等）并作为对话上下文。
+- 💬 **台词同步**：头顶悬浮字会跟随鲸鱼娘传送，并同步输出到聊天栏。
 
 ### 付费版（Premium）
 
@@ -206,7 +210,9 @@ py server.py                # 默认 127.0.0.1:8100
 | `/dp hide` | 收起鲸鱼娘 |
 | `/dp toggle` | 显示 / 隐藏切换 |
 | `/dp follow [on|off]` | 切换跟随 |
-| `/dp gui` | 打开鲸鱼娘主界面（无需点击实体） |
+| `/dp gui` | 打开鲸鱼娘主界面（Paper Dialog API） |
+| `/dp tp pettoplayer` | 把鲸鱼娘传送到你身边 |
+| `/dp tp playertopet` | 把自己传送到鲸鱼娘身边 |
 | `/dp end` | 结束与鲸鱼娘的对话 |
 | `/dp hunger` | 查看鲸鱼娘的饱食度 |
 | `/dp info` | 查看版本 |

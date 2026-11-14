@@ -107,6 +107,14 @@ public final class FeedingManager {
         return store.get(playerId, settings.initialHunger());
     }
 
+    /** Status 板块：一句话描述鲸鱼娘当前状态（供 GUI 与 AI 认知使用）。 */
+    public String statusLine(UUID playerId) {
+        int max = settings.maxHunger();
+        int cur = hunger(playerId);
+        String mood = cur <= 0 ? "饿得说不出话" : (cur <= settings.hungryThreshold() ? "肚子有点饿" : "状态不错");
+        return "饱食度 " + cur + "/" + max + "（" + mood + "）";
+    }
+
     public boolean canTalk(UUID playerId) {
         return !settings.enabled() || hunger(playerId) > 0;
     }

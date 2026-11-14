@@ -18,7 +18,7 @@ import java.util.List;
 public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "show", "hide", "toggle", "follow", "gui", "end", "hunger", "reload", "info"
+            "show", "hide", "toggle", "follow", "gui", "tp", "end", "hunger", "reload", "info"
     );
 
     private final DeepseekPetCore core;
@@ -39,6 +39,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
             case "toggle" -> handleToggle(sender);
             case "follow" -> handleFollow(sender, args);
             case "gui", "menu" -> handleGui(sender);
+            case "tp" -> handleTp(sender, args);
             case "end", "exit", "quit" -> handleEnd(sender);
             case "hunger" -> handleHunger(sender);
             case "reload" -> handleReload(sender);
@@ -117,6 +118,19 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         core.log().event(player.getName(), "打开主界面", "命令");
     }
 
+    private void handleTp(CommandSender sender, String[] args) {
+        Player player = requirePlayer(sender);
+        if (player == null) {
+            return;
+        }
+        String mode = args.length >= 2 ? args[1].toLowerCase() : "";
+        switch (mode) {
+            case "pettoplayer" -> core.teleportPetToPlayer(player);
+            case "playertopet" -> core.teleportPlayerToPet(player);
+            default -> player.sendMessage(Text.color("&f/dp tp pettoplayer &7把鲸鱼娘传送到你身边；&f/dp tp playertopet &7把自己传送到鲸鱼娘身边"));
+        }
+    }
+
     private void handleEnd(CommandSender sender) {
         Player player = requirePlayer(sender);
         if (player == null) {
@@ -166,6 +180,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Text.color("&f/dp toggle &7显示/隐藏切换"));
         sender.sendMessage(Text.color("&f/dp follow [on|off] &7切换跟随"));
         sender.sendMessage(Text.color("&f/dp gui &7打开鲸鱼娘主界面"));
+        sender.sendMessage(Text.color("&f/dp tp pettoplayer|playertopet &7传送鲸鱼娘 / 传送到鲸鱼娘"));
         sender.sendMessage(Text.color("&f/dp end &7结束与鲸鱼娘的对话"));
         sender.sendMessage(Text.color("&f/dp hunger &7查看鲸鱼娘的饱食度"));
         sender.sendMessage(Text.color("&f/dp info &7查看版本"));

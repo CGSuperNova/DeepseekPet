@@ -65,12 +65,17 @@ public final class PetInstance {
         body.setCustomName(name);
     }
 
-    /** 在头顶显示一条临时的悬浮字（用于随机台词等），若干秒后消失。 */
+    /** 在头顶显示一条临时的悬浮字（用于随机台词等），若干秒后消失；同时同步到聊天栏。 */
     public void showFloatingText(String line, int seconds) {
         removeFloatingText();
         LivingEntity entity = body.entity();
         if (entity == null || !entity.isValid()) {
             return;
+        }
+        // 聊天栏同步输出相同文本
+        Player p = owner.getPlayer();
+        if (p != null && p.isOnline()) {
+            p.sendMessage(Text.plain(line));
         }
         World world = entity.getWorld();
         var loc = entity.getLocation().add(0, entity.getHeight() + 0.45, 0);
@@ -81,6 +86,18 @@ public final class PetInstance {
         });
         this.floatingText = display;
         Bukkit.getScheduler().runTaskLater(plugin, this::removeFloatingText, seconds * 20L);
+    }
+
+    /** 让悬浮字跟随鲸鱼娘（传送 / 跟随移动时调用）。 */
+    public void syncFloatingText() {
+        if (floatingText == null || !floatingText.isValid()) {
+            return;
+        }
+        LivingEntity entity = body.entity();
+        if (entity == null || !entity.isValid()) {
+            return;
+        }
+        floatingText.teleport(entity.getLocation().add(0, entity.getHeight() + 0.45, 0));
     }
 
     public void removeFloatingText() {
@@ -126,6 +143,7 @@ public final class PetInstance {
         if (follow) {
             body.followTick(owner);
         }
+        syncFloatingText();
     }
 
     // ------------------------------------------------------------ 状态
