@@ -63,7 +63,7 @@ public final class DialogGui {
                 "🐋 状态：" + core.feeding().statusLine(player.getUniqueId()), NamedTextColor.GRAY)));
         body.add(DialogBody.plainMessage(Component.text(
                 "显示：" + (visible ? "是" : "否"), NamedTextColor.GRAY)));
-        body.add(DialogBody.item(new ItemStack(Material.HEART_OF_THE_SEA)));
+        body.add(DialogBody.item(new ItemStack(Material.HEART_OF_THE_SEA)).build());
 
         return Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("鲸鱼娘 · 主界面", NamedTextColor.AQUA))
@@ -99,7 +99,7 @@ public final class DialogGui {
                             }
                             p.closeDialog();
                         })
-                ))));
+                )).build()));
     }
 
     // ------------------------------------------------------------ 对话页面
@@ -147,7 +147,7 @@ public final class DialogGui {
                                 p.closeDialog();
                             }
                         })
-                ))));
+                )).build()));
     }
 
     // ------------------------------------------------------------ 互动页面
@@ -183,7 +183,7 @@ public final class DialogGui {
                                 p.showDialog(buildMain(p));
                             }
                         })
-                ))));
+                )).build()));
     }
 
     // ------------------------------------------------------------ 工具
