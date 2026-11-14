@@ -88,14 +88,18 @@ public final class DialogGui {
                             if (!(audience instanceof Player p)) {
                                 return;
                             }
-                            boolean show = view.getBoolean("show");
+                            Boolean show = view.getBoolean("show");
+                            if (show == null) {
+                                p.closeDialog();
+                                return;
+                            }
                             boolean now = core.pets().byPlayer(p.getUniqueId()) != null;
                             if (show != now) {
                                 core.pets().toggle(p);
                             }
                             p.closeDialog();
                         })
-                )));
+                ))));
     }
 
     // ------------------------------------------------------------ 对话页面
@@ -143,7 +147,7 @@ public final class DialogGui {
                                 p.closeDialog();
                             }
                         })
-                )));
+                ))));
     }
 
     // ------------------------------------------------------------ 互动页面
@@ -179,7 +183,7 @@ public final class DialogGui {
                                 p.showDialog(buildMain(p));
                             }
                         })
-                )));
+                ))));
     }
 
     // ------------------------------------------------------------ 工具
