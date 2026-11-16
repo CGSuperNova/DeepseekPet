@@ -79,6 +79,70 @@ attack:
   # 反馈冷却（秒），避免连击刷屏
   cooldown-seconds: 3
 
+mood:
+  # 初次登入的心情值（0-100）
+  initial: 50
+  # 饥饿值区间 -> 每 interval-seconds 秒增减 amount
+  rules:
+    - hunger-min: 0
+      hunger-max: 5
+      interval-seconds: 30
+      amount: -1
+    - hunger-min: 6
+      hunger-max: 14
+      interval-seconds: 60
+      amount: 0
+    - hunger-min: 15
+      hunger-max: 20
+      interval-seconds: 30
+      amount: 1
+  # 五种心情的对话风格（注入 AI system prompt）
+  styles:
+    DEVASTATED: "语气虚弱、沮丧，句子短，偶尔自责或沉默"
+    UNHAPPY: "语气低落、爱答不理，偶尔抱怨"
+    NEUTRAL: "平常心，温和自然"
+    HAPPY: "轻快活泼，会主动撒娇"
+    ECSTATIC: "非常兴奋，话多、语气夸张"
+
+interactions:
+  # 摸头 / 捏脸 / 抱抱 / 背起；mood-delta 影响心情，window-seconds 内最多 max-times 次
+  pat:
+    name: "摸头"
+    enabled: true
+    allowed-moods: ["NEUTRAL", "HAPPY", "ECSTATIC"]
+    mood-delta: 3
+    window-seconds: 60
+    max-times: 5
+    over-limit-event: ""
+    animation: "pat"
+  pinch:
+    name: "捏脸"
+    enabled: true
+    allowed-moods: ["UNHAPPY", "NEUTRAL", "HAPPY"]
+    mood-delta: 1
+    window-seconds: 60
+    max-times: 5
+    over-limit-event: ""
+    animation: "pinch"
+  hug:
+    name: "抱抱"
+    enabled: true
+    allowed-moods: ["NEUTRAL", "HAPPY", "ECSTATIC"]
+    mood-delta: 5
+    window-seconds: 120
+    max-times: 3
+    over-limit-event: ""
+    animation: "hug"
+  carry:
+    name: "背起"
+    enabled: true
+    allowed-moods: ["NEUTRAL", "HAPPY", "ECSTATIC"]
+    mood-delta: 4
+    window-seconds: 120
+    max-times: 3
+    over-limit-event: ""
+    animation: "carry"
+
 messages:
   # 各种提示文本（可自行汉化）
   pet-spawned: "&b你的鲸鱼娘已经来到你身边啦～"

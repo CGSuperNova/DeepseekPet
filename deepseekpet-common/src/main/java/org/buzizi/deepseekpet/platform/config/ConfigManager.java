@@ -6,6 +6,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -164,6 +165,23 @@ public final class ConfigManager {
 
     public List<String> attackLines() {
         return stringList(config, "attack.lines");
+    }
+
+    // ---------------------------------------------------------------- mood / interactions
+    public int moodInitial() {
+        return config.getInt("mood.initial", 50);
+    }
+
+    public List<Map<?, ?>> moodRules() {
+        return config.getMapList("mood.rules");
+    }
+
+    public String moodStyle(String moodName) {
+        return config.getString("mood.styles." + moodName, "");
+    }
+
+    public org.bukkit.configuration.ConfigurationSection interactionsSection() {
+        return config.getConfigurationSection("interactions");
     }
 
     public boolean infoEnabled() {

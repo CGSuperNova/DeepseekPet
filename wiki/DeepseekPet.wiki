@@ -242,6 +242,24 @@ Dialog 支持文本 / 布尔 / 单选 / 数值滑块等输入控件，以及 MUL
 * 鲸鱼娘会读取自己的 Status（饱食度等）作为对话上下文；
 * 头顶悬浮字会随鲸鱼娘一起传送，并同步输出到聊天栏。
 
+== 事件系统 ==
+
+所有非玩家主动事件都有唯一 id（随机台词规则为 <code>ambient.&lt;ruleId&gt;</code>）。
+管理员可用 <code>/dp execute &lt;事件&gt; &lt;玩家|all&gt; [-f]</code> 直接对某玩家或全体触发；
+同一玩家已有事件在执行时默认拒绝，加 <code>-f</code> 强制。
+
+== 心情系统 ==
+
+心情值 0-100，对应五级：悲痛欲绝（0-20）、不开心（20-40）、一般（40-60）、开心（60-80）、
+兴高采烈（80-100）。初始 50；饥饿值处于不同区间时按 <code>mood.rules</code> 周期增减。
+五种心情的对话风格见 <code>mood.styles</code>，会注入 AI；随机台词规则可加 <code>when.mood</code> 条件。
+
+== 互动行为 ==
+
+摸头 / 捏脸 / 抱抱 / 背起（原版骑乘）。每个行为可配置 <code>allowed-moods</code>（心情门槛）、
+<code>mood-delta</code>（心情值影响）、<code>window-seconds</code> / <code>max-times</code>（次数限制）
+与 <code>over-limit-event</code>（超限事件）。Premium 额外支持 <code>animation</code> 模型动作。
+
 == 板块架构 ==
 
 插件按 7 大板块组织（Free / Premium 共用同一套骨架）：

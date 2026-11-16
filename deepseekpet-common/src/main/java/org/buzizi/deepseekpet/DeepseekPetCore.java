@@ -25,6 +25,10 @@ import org.buzizi.deepseekpet.avatar.listener.JoinQuitListener;
 import org.buzizi.deepseekpet.interaction.listener.PetInteractListener;
 import org.buzizi.deepseekpet.interaction.listener.PetDamageListener;
 import org.buzizi.deepseekpet.status.StatusContextProvider;
+import org.buzizi.deepseekpet.status.MoodService;
+import org.buzizi.deepseekpet.status.MoodContextProvider;
+import org.buzizi.deepseekpet.platform.event.EventRegistry;
+import org.buzizi.deepseekpet.interaction.action.InteractionService;
 import org.buzizi.deepseekpet.platform.util.PluginLog;
 import org.buzizi.deepseekpet.platform.util.Text;
 
@@ -52,6 +56,9 @@ public final class DeepseekPetCore {
     private PlayerContextBuilder context;
     private BoardRegistry boards;
     private DialogGui dialogGui;
+    private MoodService mood;
+    private EventRegistry events;
+    private InteractionService interactions;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -73,8 +80,12 @@ public final class DeepseekPetCore {
         this.ambient = new AmbientLineManager(plugin, config, this);
         this.context = new PlayerContextBuilder(config);
         this.context.register(new StatusContextProvider(this));
+        this.context.register(new MoodContextProvider(this));
         this.boards = new BoardRegistry();
         this.dialogGui = new DialogGui(this);
+        this.mood = new MoodService(plugin, this);
+        this.events = new EventRegistry(plugin);
+        this.interactions = new InteractionService(this);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
@@ -88,6 +99,8 @@ public final class DeepseekPetCore {
 
         this.feeding.enable();
         this.ambient.start();
+        this.ambient.registerEvents(events);
+        this.mood.start();
         startPetSweeper();
         startFollowTicker();
 
@@ -99,6 +112,9 @@ public final class DeepseekPetCore {
             boards.disableAll(this);
         }
         ambient.shutdown();
+        if (mood != null) {
+            mood.disable();
+        }
         if (feeding != null) {
             feeding.disable();
         }
@@ -317,5 +333,17 @@ public final class DeepseekPetCore {
 
     public BoardRegistry boards() {
         return boards;
+    }
+
+    public MoodService mood() {
+        return mood;
+    }
+
+    public EventRegistry events() {
+        return events;
+    }
+
+    public InteractionService interactions() {
+        return interactions;
     }
 }

@@ -152,6 +152,33 @@ public final class DialogGui {
 
     // ------------------------------------------------------------ 互动页面
     private Dialog buildInteract(Player player) {
+        List<ActionButton> buttons = new ArrayList<>();
+        for (org.buzizi.deepseekpet.interaction.action.InteractionAction action : core.interactions().actions()) {
+            buttons.add(button(action.name(), NamedTextColor.LIGHT_PURPLE, "与鲸鱼娘" + action.name(), (view, audience) -> {
+                if (audience instanceof Player p) {
+                    core.interactions().execute(p, action.id());
+                    p.showDialog(buildInteract(p));
+                }
+            }));
+        }
+        buttons.add(button("将鲸鱼娘传送至身边", NamedTextColor.YELLOW, "把鲸鱼娘拉到你身边", (view, audience) -> {
+            if (audience instanceof Player p) {
+                core.teleportPetToPlayer(p);
+                p.closeDialog();
+            }
+        }));
+        buttons.add(button("将自己传送至鲸鱼娘", NamedTextColor.YELLOW, "传送到鲸鱼娘身边", (view, audience) -> {
+            if (audience instanceof Player p) {
+                core.teleportPlayerToPet(p);
+                p.closeDialog();
+            }
+        }));
+        buttons.add(button("返回主界面", NamedTextColor.GRAY, "回到主界面", (view, audience) -> {
+            if (audience instanceof Player p) {
+                p.showDialog(buildMain(p));
+            }
+        }));
+
         return Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("与鲸鱼娘互动", NamedTextColor.AQUA))
                         .body(List.of(
@@ -165,25 +192,7 @@ public final class DialogGui {
                         ))
                         .canCloseWithEscape(true)
                         .build())
-                .type(DialogType.multiAction(List.of(
-                        button("将鲸鱼娘传送至身边", NamedTextColor.YELLOW, "把鲸鱼娘拉到你身边", (view, audience) -> {
-                            if (audience instanceof Player p) {
-                                core.teleportPetToPlayer(p);
-                                p.closeDialog();
-                            }
-                        }),
-                        button("将自己传送至鲸鱼娘", NamedTextColor.YELLOW, "传送到鲸鱼娘身边", (view, audience) -> {
-                            if (audience instanceof Player p) {
-                                core.teleportPlayerToPet(p);
-                                p.closeDialog();
-                            }
-                        }),
-                        button("返回主界面", NamedTextColor.GRAY, "回到主界面", (view, audience) -> {
-                            if (audience instanceof Player p) {
-                                p.showDialog(buildMain(p));
-                            }
-                        })
-                )).build()));
+                .type(DialogType.multiAction(buttons).build()));
     }
 
     // ------------------------------------------------------------ 工具

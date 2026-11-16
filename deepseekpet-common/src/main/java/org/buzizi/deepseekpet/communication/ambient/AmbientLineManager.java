@@ -2,9 +2,12 @@ package org.buzizi.deepseekpet.communication.ambient;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.buzizi.deepseekpet.DeepseekPetCore;
 import org.buzizi.deepseekpet.platform.config.ConfigManager;
+import org.buzizi.deepseekpet.platform.event.EventRegistry;
+import org.buzizi.deepseekpet.platform.event.PetEvent;
 import org.buzizi.deepseekpet.avatar.PetInstance;
 
 import java.time.LocalDateTime;
@@ -90,16 +93,51 @@ public final class AmbientLineManager {
     }
 
     private void fire(AmbientRule rule) {
-        String line = rule.randomLine();
-        if (line == null || line.isBlank()) {
-            return;
-        }
         int seconds = Math.max(1, config.ambientFloatSeconds());
         for (PetInstance pet : core.pets().all()) {
-            if (pet.isValid()) {
-                pet.showFloatingText(line, seconds);
-                pet.playClickSound();
+            if (!pet.isValid()) {
+                continue;
             }
+            if (!rule.matchesMood(core.mood().mood(pet.owner().getUniqueId()))) {
+                continue;
+            }
+            String line = rule.randomLine();
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            pet.showFloatingText(line, seconds);
+            pet.playClickSound();
+        }
+    }
+
+    /** 把每条随机台词规则注册成可被 /dp execute 触发的事件。 */
+    public void registerEvents(EventRegistry events) {
+        for (AmbientRule rule : rules) {
+            events.register(new PetEvent() {
+                @Override
+                public String id() {
+                    return "ambient." + rule.id();
+                }
+
+                @Override
+                public String description() {
+                    return "随机台词：" + rule.id();
+                }
+
+                @Override
+                public void execute(Player player) {
+                    PetInstance pet = core.pets().byPlayer(player.getUniqueId());
+                    if (pet == null || !pet.isValid()) {
+                        return;
+                    }
+                    String line = rule.randomLine();
+                    if (line == null || line.isBlank()) {
+                        return;
+                    }
+                    pet.showFloatingText(line, Math.max(1, config.ambientFloatSeconds()));
+                    pet.playClickSound();
+                }
+            });
         }
     }
 }

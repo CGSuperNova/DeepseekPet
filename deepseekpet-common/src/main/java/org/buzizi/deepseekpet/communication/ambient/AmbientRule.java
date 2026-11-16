@@ -1,6 +1,7 @@
 package org.buzizi.deepseekpet.communication.ambient;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.buzizi.deepseekpet.status.Mood;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -31,6 +32,7 @@ public final class AmbientRule {
     private final List<DateRange> dateRanges = new ArrayList<>();
     private Set<DayOfWeek> weekdays; // null = 不限
     private Integer weekParity;      // 0=even, 1=odd, null=不限
+    private Set<Mood> moods;         // null = 不限
 
     private AmbientRule(String id, boolean enabled, List<String> lines, long intervalSeconds) {
         this.id = id;
@@ -53,8 +55,31 @@ public final class AmbientRule {
             rule.parseDateRange(when.get("date-range"));
             rule.parseWeekdays(when.get("weekdays"));
             rule.parseWeekParity(when.getString("week-parity"));
+            rule.parseMoods(when.get("mood"));
         }
         return rule;
+    }
+
+    /** 解析心情条件（单个值或列表；支持 DEVASTATED/UNHAPPY/NEUTRAL/HAPPY/ECSTATIC）。 */
+    private void parseMoods(Object raw) {
+        if (raw == null) {
+            return;
+        }
+        Set<Mood> parsed = EnumSet.noneOf(Mood.class);
+        for (String s : toStrings(raw)) {
+            Mood mood = Mood.byName(s);
+            if (mood != null) {
+                parsed.add(mood);
+            }
+        }
+        if (!parsed.isEmpty()) {
+            this.moods = parsed;
+        }
+    }
+
+    /** 心情条件是否满足（未配置则始终满足）。 */
+    public boolean matchesMood(Mood mood) {
+        return moods == null || moods.isEmpty() || moods.contains(mood);
     }
 
     // ------------------------------------------------------------------ 解析

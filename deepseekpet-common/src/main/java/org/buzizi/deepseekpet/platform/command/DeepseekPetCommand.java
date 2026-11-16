@@ -1,5 +1,6 @@
 package org.buzizi.deepseekpet.platform.command;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -18,7 +19,7 @@ import java.util.List;
 public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "show", "hide", "toggle", "follow", "gui", "tp", "end", "hunger", "reload", "info"
+            "show", "hide", "toggle", "follow", "gui", "tp", "execute", "end", "hunger", "reload", "info"
     );
 
     private final DeepseekPetCore core;
@@ -40,6 +41,7 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
             case "follow" -> handleFollow(sender, args);
             case "gui", "menu" -> handleGui(sender);
             case "tp" -> handleTp(sender, args);
+            case "execute" -> handleExecute(sender, args);
             case "end", "exit", "quit" -> handleEnd(sender);
             case "hunger" -> handleHunger(sender);
             case "reload" -> handleReload(sender);
@@ -128,6 +130,40 @@ public final class DeepseekPetCommand implements CommandExecutor, TabCompleter {
             case "pettoplayer" -> core.teleportPetToPlayer(player);
             case "playertopet" -> core.teleportPlayerToPet(player);
             default -> player.sendMessage(Text.color("&f/dp tp pettoplayer &7把鲸鱼娘传送到你身边；&f/dp tp playertopet &7把自己传送到鲸鱼娘身边"));
+        }
+    }
+
+    /** /dp execute <事件> <玩家|all> [-f] —— 直接触发鲸鱼娘事件。 */
+    private void handleExecute(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("deepseekpet.admin")) {
+            sender.sendMessage(Text.color("&c你没有权限执行该命令"));
+            return;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(Text.color("&f/dp execute <事件> <玩家|all> [-f] &7直接触发鲸鱼娘事件"));
+            sender.sendMessage(Text.color("&7可用事件：" + String.join(", ", core.events().ids())));
+            return;
+        }
+        String eventId = args[1];
+        String target = args[2];
+        boolean force = args.length >= 4 && "-f".equalsIgnoreCase(args[3]);
+        if (core.events().get(eventId) == null) {
+            sender.sendMessage(Text.color("&c未知事件：&f" + eventId));
+            return;
+        }
+        if ("all".equalsIgnoreCase(target)) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                core.events().execute(eventId, player, force);
+            }
+            sender.sendMessage(Text.color("&b已对全体玩家触发事件 &f" + eventId));
+        } else {
+            Player player = Bukkit.getPlayerExact(target);
+            if (player == null) {
+                sender.sendMessage(Text.color("&c玩家不在线：&f" + target));
+                return;
+            }
+            boolean ok = core.events().execute(eventId, player, force);
+            sender.sendMessage(Text.color(ok ? "&b已触发事件 &f" + eventId : "&e事件被冲突拒绝（可加 -f 强制）"));
         }
     }
 
