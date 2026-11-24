@@ -45,10 +45,10 @@ public final class RagClient {
     /**
      * 提问并获取鲸鱼娘风格的回复。
      *
-     * @param playerContext 玩家当前信息（可为空），由 rag-bridge 注入 system prompt
+     * @param system 已拼接好的完整 system prompt（可空，空则用 rag-bridge 默认角色卡）
      * @throws Exception 网络异常 / 服务返回错误
      */
-    public ChatResult chat(String question, List<Message> history, String playerContext) throws Exception {
+    public ChatResult chat(String question, List<Message> history, String system) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty("question", question);
         JsonArray historyArr = new JsonArray();
@@ -59,8 +59,8 @@ public final class RagClient {
             historyArr.add(turn);
         }
         body.add("history", historyArr);
-        if (playerContext != null && !playerContext.isBlank()) {
-            body.addProperty("player_context", playerContext);
+        if (system != null && !system.isBlank()) {
+            body.addProperty("system", system);
         }
 
         HttpResponse<String> resp = Http.postJson(http, baseUrl + "/chat", apiKey, gson.toJson(body), timeoutSeconds);

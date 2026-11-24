@@ -46,17 +46,17 @@ public final class ChatService {
     /**
      * 阻塞调用，应在异步线程执行。
      *
-     * @param question      玩家本次输入
-     * @param history       之前的对话历史（不含本次输入）
-     * @param playerContext 玩家当前信息（金币/背包/PAPI 等），可为空
+     * @param question     玩家本次输入
+     * @param history      之前的对话历史（不含本次输入）
+     * @param systemPrompt 已拼接好的完整 system prompt（分层 + 场景 + 玩家上下文）
      */
-    public ChatResult ask(String question, List<Message> history, String playerContext) throws Exception {
+    public ChatResult ask(String question, List<Message> history, String systemPrompt) throws Exception {
         long now = System.currentTimeMillis();
 
-        // 1) 优先本地 RAG（检索 + 生成，角色卡与玩家信息在 rag-bridge 内注入）
+        // 1) 优先本地 RAG（检索 + 生成，system prompt 由 Java 侧拼好传入）
         if (now >= ragDownUntil) {
             try {
-                ChatResult result = rag.chat(question, history, playerContext);
+                ChatResult result = rag.chat(question, history, systemPrompt);
                 ragDownUntil = 0L;
                 return result;
             } catch (Exception e) {
@@ -65,13 +65,9 @@ public final class ChatService {
             }
         }
 
-        // 2) 兜底：直连 DeepSeek（用角色卡 + 玩家信息做 system prompt）
+        // 2) 兜底：直连 DeepSeek（用拼好的 system prompt）
         if (config.fallbackToLlm() && llm.isConfigured()) {
-            String system = persona.systemPrompt();
-            if (playerContext != null && !playerContext.isBlank()) {
-                system = system + "\n\n【主人当前信息】（回答问题时参考，不要逐字复述）：\n" + playerContext;
-            }
-            String answer = llm.chat(system, history, question);
+            String answer = llm.chat(systemPrompt, history, question);
             return new ChatResult(answer, false, List.of(), "free");
         }
 

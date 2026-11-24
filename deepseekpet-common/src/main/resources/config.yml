@@ -143,6 +143,13 @@ interactions:
     over-limit-event: ""
     animation: "carry"
 
+chat:
+  # 单条回复最大字符数（超过会在句号/问号/感叹号处拆成多条）
+  max-message-length: 100
+  # 拆分后每条发送间隔（毫秒，模拟打字节奏）
+  reply-delay-min-ms: 300
+  reply-delay-max-ms: 600
+
 messages:
   # 各种提示文本（可自行汉化）
   pet-spawned: "&b你的鲸鱼娘已经来到你身边啦～"

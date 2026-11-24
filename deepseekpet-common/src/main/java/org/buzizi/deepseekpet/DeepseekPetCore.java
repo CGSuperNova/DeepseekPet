@@ -9,8 +9,12 @@ import org.buzizi.deepseekpet.cognition.ChatResult;
 import org.buzizi.deepseekpet.cognition.ChatService;
 import org.buzizi.deepseekpet.cognition.MemoryStore;
 import org.buzizi.deepseekpet.cognition.Message;
+import org.buzizi.deepseekpet.cognition.PromptService;
+import org.buzizi.deepseekpet.cognition.Scene;
+import org.buzizi.deepseekpet.cognition.SceneRouter;
 import org.buzizi.deepseekpet.communication.persona.Persona;
 import org.buzizi.deepseekpet.communication.ambient.AmbientLineManager;
+import org.buzizi.deepseekpet.communication.post.ReplyPostProcessor;
 import org.buzizi.deepseekpet.platform.command.DeepseekPetCommand;
 import org.buzizi.deepseekpet.platform.extension.BoardRegistry;
 import org.buzizi.deepseekpet.context.PlayerContextBuilder;
@@ -36,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * DeepseekPet 核心：free 与 premium 共享的全部能力都从这里组装。
@@ -59,6 +64,9 @@ public final class DeepseekPetCore {
     private MoodService mood;
     private EventRegistry events;
     private InteractionService interactions;
+    private PromptService promptService;
+    private SceneRouter sceneRouter;
+    private ReplyPostProcessor postProcessor;
 
     /** 处于「对话模式」的玩家（其聊天内容会发给鲸鱼娘）。 */
     private final Set<UUID> dialogSessions = ConcurrentHashMap.newKeySet();
@@ -86,6 +94,9 @@ public final class DeepseekPetCore {
         this.mood = new MoodService(plugin, this);
         this.events = new EventRegistry(plugin);
         this.interactions = new InteractionService(this);
+        this.promptService = new PromptService(persona, config);
+        this.sceneRouter = new SceneRouter(promptService);
+        this.postProcessor = new ReplyPostProcessor(plugin, config);
 
         plugin.getServer().getPluginManager().registerEvents(new JoinQuitListener(this), plugin);
         plugin.getServer().getPluginManager().registerEvents(new PetInteractListener(this), plugin);
@@ -234,24 +245,26 @@ public final class DeepseekPetCore {
         player.sendMessage(Text.color(config.message("thinking", "&7鲸鱼娘正在思考中…")));
         log.event(player.getName(), "发送对话", truncate(text));
 
-        // 主线程构建玩家信息（背包 / PAPI 等必须在主线程访问）
+        // 主线程构建玩家信息 + 场景路由 + 分层提示词
         Bukkit.getScheduler().runTask(plugin, () -> {
             String playerContext = context.build(player);
+            Scene scene = sceneRouter.detect(player, text);
+            String system = promptService.buildSystem(scene, playerContext);
 
             Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                ChatResult result = computeReply(text, prior, playerContext);
+                ChatResult result = computeReply(text, prior, system);
                 memory.append(id, "assistant", result.answer());
                 log.event(player.getName(), "收到回复", truncate(result.answer()));
 
-                Bukkit.getScheduler().runTask(plugin, () -> sendWhaleReply(player, result.answer()));
+                Bukkit.getScheduler().runTask(plugin, () -> sendWhaleReply(player, result.answer(), scene));
             });
         });
     }
 
     /** 阻塞调用 AI 并兜底错误信息（仅在异步线程调用）。 */
-    private ChatResult computeReply(String text, List<Message> prior, String playerContext) {
+    private ChatResult computeReply(String text, List<Message> prior, String system) {
         try {
-            return chat.ask(text, prior, playerContext);
+            return chat.ask(text, prior, system);
         } catch (Exception e) {
             log.error("AI 调用失败", e);
             String err = config.message("ai-error", "&c鲸鱼娘暂时开小差啦：%error%")
@@ -267,15 +280,29 @@ public final class DeepseekPetCore {
         return s.length() > 120 ? s.substring(0, 120) + "…" : s;
     }
 
-    private void sendWhaleReply(Player player, String answer) {
+    private void sendWhaleReply(Player player, String answer, Scene scene) {
+        List<String> segments = postProcessor.process(player, answer, scene);
         Component prefix = Component.text("[鲸鱼娘] ", NamedTextColor.AQUA);
-        String[] lines = (answer == null ? "" : answer).split("\\r?\\n");
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.isEmpty()) {
+        int delayMin = Math.max(0, config.replyDelayMinMs());
+        int delayMax = Math.max(delayMin, config.replyDelayMaxMs());
+        for (int i = 0; i < segments.size(); i++) {
+            final String segment = segments.get(i);
+            if (segment.isEmpty()) {
                 continue;
             }
-            player.sendMessage(i == 0 ? prefix.append(Text.plain(line)) : Text.plain("　 " + line));
+            final boolean first = i == 0;
+            int ticks = 0;
+            if (i > 0) {
+                int ms = delayMax > delayMin ? delayMin + ThreadLocalRandom.current().nextInt(delayMax - delayMin + 1) : delayMin;
+                ticks = Math.max(1, ms / 50);
+            }
+            final int delay = ticks;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                player.sendMessage(first ? prefix.append(Text.color(segment)) : Text.color("　 " + segment));
+            }, delay);
         }
         PetInstance pet = pets.byPlayer(player.getUniqueId());
         if (pet != null && pet.isValid()) {

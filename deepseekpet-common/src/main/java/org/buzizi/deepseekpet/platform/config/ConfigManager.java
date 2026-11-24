@@ -184,6 +184,19 @@ public final class ConfigManager {
         return config.getConfigurationSection("interactions");
     }
 
+    // ---------------------------------------------------------------- chat (post-processing)
+    public int maxMessageLength() {
+        return config.getInt("chat.max-message-length", 100);
+    }
+
+    public int replyDelayMinMs() {
+        return config.getInt("chat.reply-delay-min-ms", 300);
+    }
+
+    public int replyDelayMaxMs() {
+        return config.getInt("chat.reply-delay-max-ms", 600);
+    }
+
     public boolean infoEnabled() {
         return config.getBoolean("info.enabled", true);
     }

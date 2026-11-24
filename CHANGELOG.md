@@ -65,6 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **更多互动（Interaction）**：摸头 / 捏脸 / 抱抱 / 背起（原版骑乘），支持心情门槛、心情值影响、
   时间窗次数限制与超限事件；Premium 支持模型动作。
 
+### Changed（AI 提示词分层 + 输出后处理）
+
+- 提示词拆为 L1 身份 / L2 聊天习惯 / L3 颜色语法 / L4 场景路由（`persona.yml` 的 `layers`），
+  运行时按场景拼接；L4 用关键词判答疑、低血量判情境陪伴，答疑模式降级颜色。
+- 输出后处理链（free / premium）：原始日志 → 颜色净化（白名单 & 代码、末尾孤立 & 移除、&k 限长）
+  → 空回复兜底 → 按长度/句子边界拆分，并按 300-600ms 间隔分条发送（模拟打字节奏）。
+
 ## [1.0.0] - 2026-10-31
 
 ### Added

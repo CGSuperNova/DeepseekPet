@@ -177,10 +177,10 @@ def chat():
         return _fail(f"question 过长，最多 {MAX_QUESTION_CHARS} 字")
 
     history = _clean_history(body.get("history"))
-    player_context = str(body.get("player_context") or "").strip()
+    system = str(body.get("system") or "").strip() or None
     started = time.time()
     try:
-        result = whalechan_chat(question, history, player_context)
+        result = whalechan_chat(question, history, system)
     except ServiceError as exc:
         return _fail(str(exc), status=409)
     except Exception as exc:  # pragma: no cover
