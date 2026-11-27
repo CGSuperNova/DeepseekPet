@@ -192,15 +192,18 @@ public final class DeepseekPetCore {
         return dialogGui;
     }
 
-    /** GUI 对话：发送一条消息，并在收到回复后自动刷新对话页面。 */
+    /** GUI 对话：发送一条消息，界面保持打开并显示「思考中」状态。 */
     public void sendGuiDialogMessage(Player player, String text) {
         dialogGui.markGuiDialog(player);
-        handleDialogMessage(player, text);
+        dialogGui.markThinking(player);
+        dialogGui.refreshDialog(player);
+        handleDialogMessage(player, text, true);
     }
 
     /** GUI 对话：退出对话。 */
     public void exitGuiDialog(Player player) {
         dialogGui.exitGuiDialog(player);
+        dialogGui.clearThinking(player);
         dialogSessions.remove(player.getUniqueId());
         player.sendMessage(Text.color(config.message("dialog-end", "&b和鲸鱼娘的对话结束啦～")));
     }
@@ -232,6 +235,11 @@ public final class DeepseekPetCore {
 
     /** 处理一条来自玩家的对话消息（线程安全：内部会异步调用 AI）。 */
     public void handleDialogMessage(Player player, String text) {
+        handleDialogMessage(player, text, false);
+    }
+
+    /** @param gui 为 true 时（GUI 对话）不往聊天栏发「思考中」提示 */
+    public void handleDialogMessage(Player player, String text, boolean gui) {
         if (!feeding.canTalk(player.getUniqueId())) {
             player.sendMessage(Text.color(feeding.refuseLine()));
             log.event(player.getName(), "对话被拒绝", "饥饿值为 0");
@@ -242,7 +250,9 @@ public final class DeepseekPetCore {
         UUID id = player.getUniqueId();
         List<Message> prior = List.copyOf(memory.getHistory(id));
         memory.append(id, "user", text);
-        player.sendMessage(Text.color(config.message("thinking", "&7鲸鱼娘正在思考中…")));
+        if (!gui) {
+            player.sendMessage(Text.color(config.message("thinking", "&7鲸鱼娘正在思考中…")));
+        }
         log.event(player.getName(), "发送对话", truncate(text));
 
         // 主线程构建玩家信息 + 场景路由 + 分层提示词
@@ -309,6 +319,7 @@ public final class DeepseekPetCore {
             pet.playClickSound();
         }
         if (dialogGui != null && dialogGui.isGuiDialog(player)) {
+            dialogGui.clearThinking(player);
             dialogGui.openDialogPage(player);
         }
     }

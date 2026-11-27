@@ -11,6 +11,7 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -20,6 +21,9 @@ import org.buzizi.deepseekpet.cognition.Message;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 鲸鱼娘 GUI（Paper 1.21.7+ Dialog API）。
@@ -32,9 +36,64 @@ public final class DialogGui {
     private final DeepseekPetCore core;
     /** 处于「GUI 对话模式」的玩家（收到回复后自动刷新对话页面）。 */
     private final java.util.Set<java.util.UUID> guiDialog = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** 正在思考的玩家 -> 开始时间。 */
+    private final Map<UUID, Long> thinkingSince = new ConcurrentHashMap<>();
+    /** 思考计时任务。 */
+    private final Map<UUID, Integer> thinkingTasks = new ConcurrentHashMap<>();
 
     public DialogGui(DeepseekPetCore core) {
         this.core = core;
+    }
+
+    public boolean isThinking(Player player) {
+        return thinkingSince.containsKey(player.getUniqueId());
+    }
+
+    public long thinkingSeconds(Player player) {
+        Long since = thinkingSince.get(player.getUniqueId());
+        return since == null ? 0 : (System.currentTimeMillis() - since) / 1000L;
+    }
+
+    /** 进入思考状态：立即显示状态并每秒刷新一次计时。 */
+    public void markThinking(Player player) {
+        UUID id = player.getUniqueId();
+        thinkingSince.put(id, System.currentTimeMillis());
+        Integer old = thinkingTasks.remove(id);
+        if (old != null) {
+            Bukkit.getScheduler().cancelTask(old);
+        }
+        int taskId = Bukkit.getScheduler().runTaskTimer(core.plugin(), () -> {
+            if (!thinkingSince.containsKey(id)) {
+                return;
+            }
+            if (!player.isOnline()) {
+                clearThinking(player);
+                return;
+            }
+            // 安全上限：最多刷新 3 分钟，避免意外情况下反复弹出界面
+            if (thinkingSeconds(player) > 180) {
+                clearThinking(player);
+                return;
+            }
+            refreshDialog(player);
+        }, 20L, 20L).getTaskId();
+        thinkingTasks.put(id, taskId);
+    }
+
+    /** 结束思考状态并取消计时。 */
+    public void clearThinking(Player player) {
+        thinkingSince.remove(player.getUniqueId());
+        Integer taskId = thinkingTasks.remove(player.getUniqueId());
+        if (taskId != null) {
+            Bukkit.getScheduler().cancelTask(taskId);
+        }
+    }
+
+    /** 重新展示对话页面（用于思考状态计时刷新）。 */
+    public void refreshDialog(Player player) {
+        if (player.isOnline() && isGuiDialog(player)) {
+            player.showDialog(buildDialog(player));
+        }
     }
 
     public boolean isGuiDialog(Player player) {
@@ -109,6 +168,12 @@ public final class DialogGui {
 
     private Dialog buildDialog(Player player) {
         List<DialogBody> body = new ArrayList<>();
+        if (isThinking(player)) {
+            body.add(DialogBody.plainMessage(Component.text(
+                    "状态：思考中（已思考 " + thinkingSeconds(player) + " 秒）", NamedTextColor.YELLOW)));
+        } else {
+            body.add(DialogBody.plainMessage(Component.text("状态：空闲中", NamedTextColor.GREEN)));
+        }
         List<Message> history = core.memory().getHistory(player.getUniqueId());
         int from = Math.max(0, history.size() - 6);
         if (from >= history.size()) {
@@ -134,7 +199,6 @@ public final class DialogGui {
                                 return;
                             }
                             String msg = view.getText("message");
-                            p.closeDialog();
                             if (msg == null || msg.isBlank()) {
                                 openDialogPage(p);
                                 return;
